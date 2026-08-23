@@ -2,17 +2,21 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from './generated/prisma/client';
+import { PrismaClient } from './generated/prisma';
+
 dotenv.config();
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-});
+// Inicialización segura del pool de PostgreSQL para Neon con el adaptador
+const connectionString = process.env.DATABASE_URL;
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+
+// Instancia de Prisma con tipado correcto del cliente generado
 const prisma = new PrismaClient({ adapter });
 const app = express();
 
-// Medidas de seguridad y límites
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
@@ -25,14 +29,29 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// Ruta para obtener los proyectos desde Neon con Prisma
+// Ruta para obtener los proyectos con todas sus relaciones validadas por el esquema
 app.get('/projects', async (req: Request, res: Response) => {
   try {
     const projects = await prisma.project.findMany({
-      include: { tasks: true }
+      include: {
+        tasks: {
+          include: {
+            technicalArea: true,
+            performanceMetrics: true,
+            driveLinks: true
+          }
+        },
+        milestones: true,
+        teamMembers: {
+          include: {
+            teamStatus: true
+          }
+        }
+      }
     });
     res.json(projects);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Error al obtener los proyectos' });
   }
 });

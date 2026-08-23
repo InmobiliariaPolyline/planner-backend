@@ -11,38 +11,38 @@ datasource db {
 }
 
 model Project {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   name           String
   startDate      DateTime
   endDate        DateTime
   budget         Float
   durationMonths Int
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  progress       Int
-  dependency     String
-  isPhase        Boolean
-  ownerName      String
+  progress   Int
+  dependency String
+  isPhase    Boolean
+  ownerName  String
 
   // Relaciones
-  tasks          Task[]
-  milestones     Milestone[]
-  teamMembers    TeamMember[]
+  tasks       Task[]
+  milestones  Milestone[]
+  teamMembers TeamMember[]
 }
 
 model Task {
-  id              String              @id @default(uuid())
-  name            String
-  projectId       String
-  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  startDate       DateTime
-  endDate         DateTime
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   technicalAreaId String
-  technicalArea   TechnicalArea       @relation(fields: [technicalAreaId], references: [id])
+  technicalArea   TechnicalArea @relation(fields: [technicalAreaId], references: [id])
   progress        Int
   dependency      String
   isPhase         Boolean
@@ -91,15 +91,15 @@ model TeamMember {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  projectId    String
-  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model TeamStatus {
-  id        String       @id @default(uuid())
+  id        String   @id @default(uuid())
   type      String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relaciones
   teamMembers TeamMember[]
@@ -112,5 +112,5 @@ model TechnicalArea {
   updatedAt DateTime @updatedAt
 
   // Relaciones
-  tasks     Task[]
+  tasks Task[]
 }
