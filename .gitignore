@@ -2,4 +2,7 @@ node_modules
 # Keep environment variables out of version control
 .env
 
+# Render generates the compiled output during the build
+/dist
+
 /src/generated/prisma
