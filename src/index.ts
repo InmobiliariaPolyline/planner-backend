@@ -9,7 +9,7 @@ import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 const app = express();
 
 app.use(helmet());
-const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000').split(',').map((origin) => origin.trim());
+const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000,https://plannerbackend.vercel.app').split(',').map((origin) => origin.trim());
 app.use(cors({ origin: (origin, callback) => {
   if (!origin || allowedOrigins.includes(origin)) {
     callback(null, true);
@@ -73,7 +73,7 @@ app.post('/projects', async (req: Request, res: Response) => {
     res.status(201).json(project);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al crear el proyecto' });
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el proyecto' });
   }
 });
 
