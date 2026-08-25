@@ -1,21 +1,11 @@
+import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from './generated/prisma';
+import { prisma, projectInclude } from './lib/prisma';
+import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 
-dotenv.config();
-
-// Inicialización segura del pool de PostgreSQL para Neon con el adaptador
-const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-
-// Instancia de Prisma con tipado correcto del cliente generado
-const prisma = new PrismaClient({ adapter });
 const app = express();
 
 app.use(helmet());
@@ -30,31 +20,6 @@ app.use(cors({ origin: (origin, callback) => {
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }));
 app.use(express.json({ limit: '10kb' }));
 
-function cleanText(value: unknown, field: string, required = true): string | undefined {
-  if (value === undefined || value === null || value === '') {
-    if (required) throw new Error(`${field} es obligatorio`);
-    return undefined;
-  }
-  if (typeof value !== 'string' || value.length > 300 || /[<>]/.test(value)) {
-    throw new Error(`${field} contiene un valor inválido`);
-  }
-  return value.trim();
-}
-
-function requiredDate(value: unknown, field: string): Date {
-  const date = new Date(String(value));
-  if (!value || Number.isNaN(date.getTime())) throw new Error(`${field} debe ser una fecha válida`);
-  return date;
-}
-
-function requiredNumber(value: unknown, field: string, minimum = 0, maximum?: number): number {
-  const number = Number(value);
-  if (value === undefined || value === null || !Number.isFinite(number) || number < minimum || (maximum !== undefined && number > maximum)) {
-    throw new Error(`${field} debe ser un número válido`);
-  }
-  return number;
-}
-
 // Ruta de prueba inicial
 app.get('/', (req: Request, res: Response) => {
   res.json({
@@ -62,22 +27,6 @@ app.get('/', (req: Request, res: Response) => {
     estado: "Activo"
   });
 });
-
-const projectInclude = {
-  tasks: {
-    include: {
-      technicalArea: true,
-      performanceMetrics: true,
-      driveLinks: true
-    }
-  },
-  milestones: true,
-  teamMembers: {
-    include: {
-      teamStatus: true
-    }
-  }
-};
 
 app.get('/projects', async (req: Request, res: Response) => {
   try {
