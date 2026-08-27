@@ -32,12 +32,13 @@ type Project = {
 
 type StatusFilter = "all" | "active" | "completed";
 type SortOrder = "recent" | "name" | "progress";
+type Notification = { id: number; message: string; time: string };
 
 const initialTasks: Task[] = [];
 const demoProjects: Project[] = [];
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const localProjectsKey = "project-planner-projects";
 const themeKey = "project-planner-theme";
+let createTaskHandler: (() => void) | undefined;
 
 const timelineStart = new Date("2026-06-03T00:00:00");
 const timelineEnd = new Date("2026-06-28T00:00:00");
@@ -52,6 +53,22 @@ function getBarStyle(task: Task) {
   const left = Math.max(0, Math.min(100, ((start.getTime() - timelineStart.getTime()) / total) * 100));
   const width = Math.max(5, Math.min(100 - left, ((end.getTime() - start.getTime()) / total) * 100 + 5));
   return { left: `${left}%`, width: `${width}%` };
+}
+
+function normalizeTasks(tasks: Array<Record<string, unknown>> = []): Task[] {
+  return tasks.map((task, index) => ({
+    id: String(task.id ?? index + 1),
+    name: String(task.name ?? "Tarea sin nombre"),
+    owner: String(task.ownerName ?? "Sin responsable"),
+    start: new Date(String(task.startDate)).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", ""),
+    end: new Date(String(task.endDate)).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", ""),
+    progress: Number(task.progress ?? 0),
+    phase: Boolean(task.isPhase),
+    dependency: String(task.dependency ?? ""),
+    technicalArea: typeof task.technicalArea === "object" && task.technicalArea !== null ? String((task.technicalArea as { name?: string }).name ?? "Sin área") : "Sin área",
+    metrics: String(Array.isArray(task.performanceMetrics) ? task.performanceMetrics.length : 0),
+    driveLinks: Array.isArray(task.driveLinks) ? task.driveLinks.length : 0,
+  }));
 }
 
 export default function Home() {
@@ -80,6 +97,9 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("recent");
   const [ganttMode, setGanttMode] = useState<"month" | "week">("month");
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showEditProject, setShowEditProject] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsBooting(false), 850);
@@ -94,6 +114,10 @@ export default function Home() {
     });
   }
 
+  function addNotification(message: string) {
+    setNotifications((current) => [{ id: Date.now(), message, time: "Ahora" }, ...current].slice(0, 8));
+  }
+
   useEffect(() => {
     if (!authenticated) return;
     fetch(`${apiUrl}/projects`)
@@ -101,13 +125,20 @@ export default function Home() {
       .then((data: Project[]) => {
         setProjects(data);
         setApiMessage("");
+        if (data.length) addNotification(`${data.length} expediente${data.length === 1 ? "" : "s"} cargado${data.length === 1 ? "" : "s"} desde Neon.`);
       })
       .catch(() => {
-        const storedProjects = window.localStorage.getItem(localProjectsKey);
-        setProjects(storedProjects ? JSON.parse(storedProjects) as Project[] : []);
-        setApiMessage("API no disponible. Los cambios se guardarán localmente en este navegador.");
+        setProjects([]);
+        setApiMessage("API no disponible. No se cargaron proyectos locales.");
+        addNotification("No fue posible conectar con la API de Render.");
       });
   }, [authenticated]);
+
+  function selectProject(project: Project) {
+    setSelectedProject(project);
+    setTasks(normalizeTasks((project.tasks ?? []) as unknown as Array<Record<string, unknown>>));
+    setActiveView("overview");
+  }
 
   async function createProject() {
     if (!projectName.trim() || !projectStartDate || !projectEndDate || !projectDuration || !projectOwner.trim() || !projectBudget) throw new Error("Completa todos los campos del expediente");
@@ -117,16 +148,14 @@ export default function Home() {
       const response = await fetch(`${apiUrl}/projects`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(projectData) });
       if (!response.ok) throw new Error("No fue posible crear el expediente");
       project = await response.json() as Project;
-    } catch {
-      project = { ...projectData, id: `LOCAL-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, progress: 0, tasks: [], milestones: [], teamMembers: [] };
-      const localProjects = [project, ...projects];
-      window.localStorage.setItem(localProjectsKey, JSON.stringify(localProjects));
-      setApiMessage("API no disponible. Expediente guardado localmente en este navegador.");
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("No fue posible conectar con la API");
     }
     setProjects((current) => [project, ...current]);
     setSelectedProject(project);
     setShowNewProject(false);
-    if (!project.id.startsWith("LOCAL-")) setApiMessage("Expediente creado correctamente.");
+    setApiMessage("Expediente creado correctamente.");
+    addNotification(`Expediente creado: ${project.name}.`);
     setProjectName("");
     setProjectStartDate("");
     setProjectEndDate("");
@@ -138,18 +167,16 @@ export default function Home() {
   async function deleteProject(project: Project) {
     if (!window.confirm(`¿Eliminar el expediente "${project.name}"? Esta acción no se puede deshacer.`)) return;
     try {
-      if (!project.id.startsWith("LOCAL-")) {
-        const response = await fetch(`${apiUrl}/projects/${project.id}`, { method: "DELETE" });
-        if (!response.ok) throw new Error("No fue posible eliminar el expediente");
-      }
+      const response = await fetch(`${apiUrl}/projects/${project.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("No fue posible eliminar el expediente");
       const remainingProjects = projects.filter((item) => item.id !== project.id);
       setProjects(remainingProjects);
-      window.localStorage.setItem(localProjectsKey, JSON.stringify(remainingProjects));
       if (selectedProject?.id === project.id) {
         setSelectedProject(null);
         setActiveView("projects");
       }
       setApiMessage("Expediente eliminado correctamente.");
+      addNotification(`Expediente eliminado: ${project.name}.`);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "No fue posible eliminar el expediente");
     }
@@ -170,6 +197,7 @@ export default function Home() {
       setSelectedProject(updatedProject);
       setProjects((current) => current.map((project) => project.id === updatedProject.id ? updatedProject : project));
       setApiMessage("Participante añadido correctamente.");
+      addNotification(`Participante añadido a ${selectedProject.name}.`);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "No fue posible añadir al participante");
     }
@@ -188,13 +216,78 @@ export default function Home() {
       setSelectedProject(updatedProject);
       setProjects((current) => current.map((project) => project.id === updatedProject.id ? updatedProject : project));
       setApiMessage("Hito añadido correctamente.");
+      addNotification(`Hito añadido a ${selectedProject.name}.`);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "No fue posible añadir el hito");
     }
   }
 
-  function updateProgress(id: string, progress: number) {
+  async function createTask() {
+    if (!selectedProject) return;
+    const name = window.prompt("Nombre de la tarea");
+    const startDate = window.prompt("Fecha de inicio (AAAA-MM-DD)");
+    const endDate = window.prompt("Fecha de término (AAAA-MM-DD)");
+    const ownerName = window.prompt("Responsable");
+    if (!name?.trim() || !startDate || !endDate || !ownerName?.trim()) return;
+    try {
+      const areasResponse = await fetch(`${apiUrl}/technical-areas`);
+      if (!areasResponse.ok) throw new Error("No fue posible cargar las áreas técnicas");
+      const areas = await areasResponse.json() as { id: string }[];
+      if (!areas.length) throw new Error("Configura un área técnica antes de crear tareas.");
+      const response = await fetch(`${apiUrl}/projects/${selectedProject.id}/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), startDate, endDate, ownerName: ownerName.trim(), technicalAreaId: areas[0].id, progress: 0, dependency: "", isPhase: false }) });
+      if (!response.ok) throw new Error("No fue posible crear la tarea");
+      const task = await response.json() as Record<string, unknown>;
+      const nextTasks = normalizeTasks([...(selectedProject.tasks ?? []) as unknown as Array<Record<string, unknown>>, task]);
+      setTasks(nextTasks);
+      const updatedProject = { ...selectedProject, tasks: [...(selectedProject.tasks ?? []), task] } as Project;
+      setSelectedProject(updatedProject);
+      setProjects((current) => current.map((project) => project.id === updatedProject.id ? updatedProject : project));
+      setApiMessage("Tarea creada correctamente.");
+      addNotification(`Tarea creada: ${name.trim()}.`);
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "No fue posible crear la tarea");
+    }
+  }
+
+  useEffect(() => {
+    createTaskHandler = () => void createTask();
+    return () => { createTaskHandler = undefined; };
+    // The handler must remain registered while the selected project is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject]);
+
+  async function updateProgress(id: string, progress: number) {
     setTasks((current) => current.map((task) => task.id === id ? { ...task, progress } : task));
+    try {
+      const response = await fetch(`${apiUrl}/tasks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ progress }) });
+      if (!response.ok) throw new Error("No fue posible guardar el progreso");
+      addNotification(`Progreso actualizado a ${progress}%.`);
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "No fue posible guardar el progreso");
+    }
+  }
+
+  async function updateProject() {
+    if (!selectedProject) return;
+    const response = await fetch(`${apiUrl}/projects/${selectedProject.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: projectName.trim(), startDate: projectStartDate, endDate: projectEndDate, budget: Number(projectBudget), durationMonths: Number(projectDuration), ownerName: projectOwner.trim() }) });
+    if (!response.ok) throw new Error("No fue posible actualizar el expediente");
+    const project = await response.json() as Project;
+    setProjects((current) => current.map((item) => item.id === project.id ? project : item));
+    setSelectedProject(project);
+    setShowEditProject(false);
+    setApiMessage("Expediente actualizado correctamente.");
+    addNotification(`Expediente actualizado: ${project.name}.`);
+  }
+
+  function openEditProject() {
+    if (!selectedProject) return;
+    setProjectName(selectedProject.name);
+    setProjectStartDate(selectedProject.startDate.slice(0, 10));
+    setProjectEndDate(selectedProject.endDate.slice(0, 10));
+    setProjectDuration(String(selectedProject.durationMonths));
+    setProjectOwner(selectedProject.ownerName);
+    setProjectBudget(String(selectedProject.budget));
+    setShowEditProject(true);
   }
 
   const visibleProjects = projects
@@ -211,7 +304,6 @@ export default function Home() {
           <div className="brand-mark"><span>PP</span></div>
           <p className="eyebrow">PROJECT PLANNER / CONTROL DE OBRA</p>
           <h1>Convierte cada expediente en una ejecución clara.</h1>
-          <p className="login-intro">Un espacio de control para ver presupuesto, responsables y fechas críticas en un solo lugar.</p>
           <div className="login-stat"><strong>24</strong><span>proyectos activos<br />bajo seguimiento</span></div>
         </section>
         <section className="login-panel">
@@ -245,17 +337,18 @@ export default function Home() {
         <div className="sidebar-footer"><div className="profile"><div className="avatar">AR</div><div><strong>Alex Rodríguez</strong><span>Administrador</span></div><button onClick={() => setAuthenticated(false)}>⋮</button></div></div>
       </aside>
       <section className="main-area">
-        <header className="topbar"><div className="breadcrumbs"><button onClick={() => setActiveView(activeView === "dashboard" ? "dashboard" : "projects")}>{activeView === "dashboard" ? "Dashboard" : "Mis expedientes"}</button>{activeView !== "dashboard" && activeView !== "projects" && selectedProject && <><b>/</b><button onClick={() => setActiveView("overview")}>{selectedProject.name}</button><b>/</b><strong>{activeView === "gantt" ? "Cronograma" : "Resumen"}</strong></>}</div><div className="top-actions"><button className="icon-button" aria-label="Buscar" onClick={() => setActiveView("projects")}>⌕</button><button className="icon-button notification" aria-label="Notificaciones" onClick={() => setApiMessage("No tienes notificaciones nuevas.")}>♧<i /></button><button className="theme-toggle" onClick={toggleTheme} aria-label={`Activar modo ${theme === "light" ? "oscuro" : "claro"}`}><span>{theme === "light" ? "☾" : "☀"}</span><small>{theme === "light" ? "Oscuro" : "Claro"}</small></button><div className="avatar top-avatar">AR</div></div></header>
+        <header className="topbar"><div className="breadcrumbs"><button onClick={() => setActiveView(activeView === "dashboard" ? "dashboard" : "projects")}>{activeView === "dashboard" ? "Dashboard" : "Mis expedientes"}</button>{activeView !== "dashboard" && activeView !== "projects" && selectedProject && <><b>/</b><button onClick={() => setActiveView("overview")}>{selectedProject.name}</button><b>/</b><strong>{activeView === "gantt" ? "Cronograma" : "Resumen"}</strong></>}</div><div className="top-actions"><button className="icon-button" aria-label="Buscar" onClick={() => setActiveView("projects")}>⌕</button><div className="notification-wrap"><button className="icon-button notification" aria-label="Notificaciones" aria-expanded={isNotificationsOpen} onClick={() => setIsNotificationsOpen((open) => !open)}>♧{notifications.length > 0 && <i />}</button>{isNotificationsOpen && <div className="notification-panel"><div className="notification-heading"><strong>Notificaciones</strong><button type="button" onClick={() => setNotifications([])}>Limpiar</button></div>{notifications.length ? notifications.map((notification) => <div className="notification-item" key={notification.id}><span className="notification-mark" /><div><strong>{notification.message}</strong><small>{notification.time}</small></div></div>) : <p className="muted">No hay actividad reciente.</p>}</div>}</div><button className="theme-toggle" onClick={toggleTheme} aria-label={`Activar modo ${theme === "light" ? "oscuro" : "claro"}`}><span>{theme === "light" ? "☾" : "☀"}</span><small>{theme === "light" ? "Oscuro" : "Claro"}</small></button><div className="avatar top-avatar">AR</div></div></header>
         {activeView === "dashboard" ? (
-          <Dashboard projects={projects} onCreate={() => { setActiveView("projects"); setShowNewProject(true); }} onOpenProjects={() => setActiveView("projects")} onSelect={(project) => { setSelectedProject(project); setActiveView("overview"); }} />
+          <Dashboard projects={projects} onCreate={() => { setActiveView("projects"); setShowNewProject(true); }} onOpenProjects={() => setActiveView("projects")} onSelect={selectProject} />
         ) : activeView === "projects" ? (
           <div className="content projects-view"><div className="page-heading"><div><p className="eyebrow dark-eyebrow">GESTIÓN DE EXPEDIENTES</p><h1>Mis proyectos <span>({visibleProjects.length})</span></h1><p className="muted">Administra y da seguimiento al ciclo de vida de tus proyectos.</p>{apiMessage && <p className="api-message">{apiMessage}</p>}</div><button className="primary-button compact" onClick={() => setShowNewProject(true)}>＋ Nuevo expediente</button></div>
-            <div className="project-toolbar"><div className="search-box">⌕ <input value={projectSearch} onChange={(event) => setProjectSearch(event.target.value)} placeholder="Buscar por nombre o ID..." aria-label="Buscar por nombre o ID" /></div><button className="filter-button" onClick={() => setStatusFilter((current) => current === "all" ? "active" : current === "active" ? "completed" : "all")}>Estado: {statusFilter === "all" ? "Todos" : statusFilter === "active" ? "En ejecución" : "Completados"} ⌄</button><button className="filter-button" onClick={() => setSortOrder((current) => current === "recent" ? "name" : current === "name" ? "progress" : "recent")}>Ordenar: {sortOrder === "recent" ? "Recientes" : sortOrder === "name" ? "Nombre" : "Progreso"} ⌄</button></div>
-            <div className="project-grid">{visibleProjects.map((project, index) => <ProjectCard key={project.id} name={project.name} id={project.id} date={`${project.startDate.slice(0, 10)} — ${project.endDate.slice(0, 10)}`} duration={`${project.durationMonths} meses`} owner={project.ownerName} budget={`$ ${project.budget.toLocaleString("es-MX")}`} progress={project.progress} status={project.progress === 100 ? "Completado" : "En ejecución"} color={index % 3 === 0 ? "orange" : index % 3 === 1 ? "green" : "blue"} onClick={() => { setSelectedProject(project); setActiveView("overview"); }} onDelete={() => void deleteProject(project)} />)}</div>
+            <div className="project-toolbar"><div className="search-box">⌕ <input value={projectSearch} onChange={(event) => setProjectSearch(event.target.value)} placeholder="Buscar por nombre o ID..." aria-label="Buscar por nombre o ID" /></div><label className="filter-select">Estado<select className="filter-button" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}><option value="all">Todos</option><option value="active">En ejecución</option><option value="completed">Completados</option></select></label><label className="filter-select">Ordenar por<select className="filter-button" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)}><option value="recent">Más recientes</option><option value="name">Nombre</option><option value="progress">Progreso</option></select></label></div>
+            <div className="project-grid">{visibleProjects.map((project, index) => <ProjectCard key={project.id} name={project.name} id={project.id} date={`${project.startDate.slice(0, 10)} — ${project.endDate.slice(0, 10)}`} duration={`${project.durationMonths} meses`} owner={project.ownerName} budget={`$ ${project.budget.toLocaleString("es-MX")}`} progress={project.progress} status={project.progress === 100 ? "Completado" : "En ejecución"} color={index % 3 === 0 ? "orange" : index % 3 === 1 ? "green" : "blue"} onClick={() => selectProject(project)} onDelete={() => void deleteProject(project)} />)}</div>
             {showNewProject && <div className="modal-backdrop"><form className="modal" onSubmit={(event) => { event.preventDefault(); setIsSavingProject(true); void createProject().catch((error: Error) => setApiMessage(error.message)).finally(() => setIsSavingProject(false)); }}><button className="modal-close" type="button" onClick={() => setShowNewProject(false)}>×</button><p className="eyebrow dark-eyebrow">NUEVO EXPEDIENTE</p><h2>Crear proyecto</h2><p className="muted">Registra los datos principales para iniciar la trazabilidad.</p><label>Nombre del proyecto<input value={projectName} onChange={(event) => setProjectName(event.target.value)} required /></label><div className="modal-row"><label>Fecha de inicio<input type="date" value={projectStartDate} onChange={(event) => setProjectStartDate(event.target.value)} required /></label><label>Fecha de término<input type="date" value={projectEndDate} onChange={(event) => setProjectEndDate(event.target.value)} required /></label></div><div className="modal-row"><label>Duración (meses)<input value={projectDuration} onChange={(event) => setProjectDuration(event.target.value)} type="number" min="1" required /></label><label>Responsable<input value={projectOwner} onChange={(event) => setProjectOwner(event.target.value)} required /></label></div><label>Presupuesto oficial<input value={projectBudget} onChange={(event) => setProjectBudget(event.target.value)} type="number" min="0" required /></label><button className="primary-button" type="submit" disabled={isSavingProject}>{isSavingProject ? "Guardando..." : "Crear expediente"} <span>→</span></button></form></div>}
+            {showEditProject && <div className="modal-backdrop"><form className="modal" onSubmit={(event) => { event.preventDefault(); setIsSavingProject(true); void updateProject().catch((error: Error) => setApiMessage(error.message)).finally(() => setIsSavingProject(false)); }}><button className="modal-close" type="button" onClick={() => setShowEditProject(false)}>×</button><p className="eyebrow dark-eyebrow">EDITAR EXPEDIENTE</p><h2>Actualizar proyecto</h2><p className="muted">Los cambios se guardarán en la base de datos.</p><label>Nombre del proyecto<input value={projectName} onChange={(event) => setProjectName(event.target.value)} required /></label><div className="modal-row"><label>Fecha de inicio<input type="date" value={projectStartDate} onChange={(event) => setProjectStartDate(event.target.value)} required /></label><label>Fecha de término<input type="date" value={projectEndDate} onChange={(event) => setProjectEndDate(event.target.value)} required /></label></div><div className="modal-row"><label>Duración (meses)<input value={projectDuration} onChange={(event) => setProjectDuration(event.target.value)} type="number" min="1" required /></label><label>Responsable<input value={projectOwner} onChange={(event) => setProjectOwner(event.target.value)} required /></label></div><label>Presupuesto oficial<input value={projectBudget} onChange={(event) => setProjectBudget(event.target.value)} type="number" min="0" required /></label><button className="primary-button" type="submit" disabled={isSavingProject}>{isSavingProject ? "Guardando..." : "Guardar cambios"} <span>→</span></button></form></div>}
           </div>
         ) : (
-          <div className="content detail-view"><div className="detail-heading"><button className="back-button" onClick={() => setActiveView("projects")}>← Todos los proyectos</button><div className="detail-title"><div><div className="id-line"><span className="project-id">{selectedProject?.id ?? "Sin expediente seleccionado"}</span>{selectedProject && <span className="status-pill orange">{selectedProject.progress === 100 ? "Completado" : "En ejecución"}</span>}</div><h1>{selectedProject?.name ?? "Expediente vacío"}</h1><p className="muted">Responsable: {selectedProject?.ownerName ?? "Sin responsable"}</p></div><button className="secondary-button" onClick={() => selectedProject && void deleteProject(selectedProject)}>Eliminar expediente</button></div></div><div className="tabs"><button className={!isGantt ? "tab active" : "tab"} onClick={() => setActiveView("overview")}>Resumen del expediente</button><button className={isGantt ? "tab active" : "tab"} onClick={() => setActiveView("gantt")}>Cronograma Gantt <span>{selectedProject?.tasks?.length ?? 0}</span></button></div>
+          <div className="content detail-view"><div className="detail-heading"><button className="back-button" onClick={() => setActiveView("projects")}>← Todos los proyectos</button><div className="detail-title"><div><div className="id-line"><span className="project-id">{selectedProject?.id ?? "Sin expediente seleccionado"}</span>{selectedProject && <span className="status-pill orange">{selectedProject.progress === 100 ? "Completado" : "En ejecución"}</span>}</div><h1>{selectedProject?.name ?? "Expediente vacío"}</h1><p className="muted">Responsable: {selectedProject?.ownerName ?? "Sin responsable"}</p></div><div className="detail-actions"><button className="secondary-button" onClick={openEditProject}>Editar expediente</button><button className="secondary-button" onClick={() => selectedProject && void deleteProject(selectedProject)}>Eliminar expediente</button></div></div></div><div className="tabs"><button className={!isGantt ? "tab active" : "tab"} onClick={() => setActiveView("overview")}>Resumen del expediente</button><button className={isGantt ? "tab active" : "tab"} onClick={() => setActiveView("gantt")}>Cronograma Gantt <span>{selectedProject?.tasks?.length ?? 0}</span></button></div>
             {!isGantt ? <><div className="summary-grid"><Metric title="Presupuesto asignado" value={selectedProject ? `$ ${selectedProject.budget.toLocaleString("es-MX")}` : "$ 0"} note={selectedProject ? "Presupuesto oficial" : "Sin proyecto seleccionado"} /><Metric title="Duración global" value={selectedProject ? `${selectedProject.durationMonths} meses` : "0 meses"} note={selectedProject ? `${selectedProject.startDate.slice(0, 10)} — ${selectedProject.endDate.slice(0, 10)}` : "Sin fechas registradas"} /><Metric title="Progreso general" value={`${selectedProject?.progress ?? 0}%`} note={`${selectedProject?.tasks?.length ?? 0} tareas registradas`} progress={selectedProject?.progress ?? 0} /></div><div className="detail-columns"><section className="panel"><div className="panel-heading"><div><p className="eyebrow dark-eyebrow">EQUIPO DEL PROYECTO</p><h2>Participantes <span className="count">{selectedProject?.teamMembers?.length ?? 0}</span></h2></div><button className="small-action" onClick={() => void addMember()}>＋ Añadir</button></div>{selectedProject?.teamMembers?.length ? selectedProject.teamMembers.map((member) => <Member key={member.id} name={member.name} role="Participante del proyecto" initials={member.name.split(" ").map((part) => part[0]).join("")} status={member.teamStatus.type} />) : <p className="muted empty-state">No hay participantes registrados.</p>}</section><section className="panel milestones"><div className="panel-heading"><div><p className="eyebrow dark-eyebrow">FECHAS CLAVE</p><h2>Hitos del proyecto <span className="count">{selectedProject?.milestones?.length ?? 0}</span></h2></div><button className="small-action" onClick={() => void addMilestone()}>＋ Añadir</button></div>{selectedProject?.milestones?.length ? selectedProject.milestones.map((milestone) => <Milestone key={milestone.id} date={milestone.date.slice(0, 10)} title={milestone.description} />) : <p className="muted empty-state">No hay hitos registrados.</p>}</section></div></> : <Gantt tasks={tasks} editingTask={editingTask} setEditingTask={setEditingTask} updateProgress={updateProgress} mode={ganttMode} setMode={setGanttMode} />}
           </div>
         )}
@@ -291,19 +384,20 @@ function Milestone({ date, title, done }: { date: string; title: string; done?: 
 
 function Gantt({ tasks, editingTask, setEditingTask, updateProgress, mode, setMode }: { tasks: Task[]; editingTask: string | null; setEditingTask: (id: string | null) => void; updateProgress: (id: string, progress: number) => void; mode: "month" | "week"; setMode: (mode: "month" | "week") => void }) {
   useEffect(() => {
+    const newTaskButton = document.querySelector(".gantt-panel .small-action");
+    if (!newTaskButton) return;
+    const handleNewTask = () => createTaskHandler?.();
+    newTaskButton.addEventListener("click", handleNewTask);
+    return () => newTaskButton.removeEventListener("click", handleNewTask);
+  }, []);
+  useEffect(() => {
     const viewButton = document.querySelector(".gantt-panel .secondary-button");
     if (!viewButton) return;
     const handleViewChange = () => setMode(mode === "month" ? "week" : "month");
     viewButton.addEventListener("click", handleViewChange);
-    return () => viewButton.removeEventListener("click", handleViewChange);
+    return () => {
+      viewButton.removeEventListener("click", handleViewChange);
+    };
   }, [mode, setMode]);
-  useEffect(() => {
-    const newTaskButton = document.querySelector(".gantt-panel .small-action");
-    if (!newTaskButton) return;
-    const handleNewTask = () => window.alert("Selecciona una tarea para definir sus detalles.");
-    newTaskButton.addEventListener("click", handleNewTask);
-    return () => newTaskButton.removeEventListener("click", handleNewTask);
-  }, []);
-
   return <section className="gantt-panel"><div className="gantt-header"><div><p className="eyebrow dark-eyebrow">PLANIFICACIÓN DETALLADA</p><h2>Cronograma de ejecución</h2><p className="muted">Haz clic en cualquier tarea para modificar su progreso o responsable.</p></div><div><button className="secondary-button">⊞ Vista: Mes</button><button className="small-action">＋ Nueva tarea</button></div></div><div className="gantt-tools"><span>{tasks.length} elementos · {tasks.filter((task) => task.phase).length} fases</span><span className="legend"><i className="legend-dot complete" /> Completada <i className="legend-dot current" /> En curso <i className="legend-dot delayed" /> Atención</span></div><div className="gantt-table"><div className="task-head"><span>TAREA / FASE</span><span>RESPONSABLE / ÁREA</span><span>FECHAS / DEP.</span><span>PROGRESO</span><div className="timeline-head"><span>03 JUN</span><span>10 JUN</span><span>17 JUN</span><span>24 JUN</span></div></div>{tasks.map((task) => <div className={task.phase ? "task-row phase-row" : "task-row"} key={task.id} onClick={() => !task.phase && setEditingTask(editingTask === task.id ? null : task.id)}><div className="task-name"><span className="drag">⠿</span><span className="task-number">{task.id}</span><strong>{task.name}</strong></div><span className="owner"><span className="avatar mini">{task.owner.split(" ").map((part) => part[0]).join("")}</span><span>{task.owner}<small>{task.technicalArea} · {task.metrics} métricas · {task.driveLinks} Drive</small></span></span><span className="dates">{task.start}<br />{task.end}<small>Depende de: {task.dependency ?? "—"}</small></span><div className="task-progress"><strong>{task.progress}%</strong><div className="progress-track"><i style={{ width: `${task.progress}%` }} /></div></div><div className="timeline"><div className={`gantt-bar ${task.progress === 100 ? "complete" : task.progress < 30 ? "delayed" : "current"}`} style={getBarStyle(task)}>{task.phase && <span>FASE</span>}</div></div>{editingTask === task.id && <div className="edit-popover"><strong>Modificando tarea</strong><label>Progreso <input type="range" min="0" max="100" value={task.progress} onChange={(event) => updateProgress(task.id, Number(event.target.value))} /></label><span>{task.progress}% completado</span></div>}</div>)}</div></section>;
 }

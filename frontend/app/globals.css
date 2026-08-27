@@ -67,6 +67,16 @@ body { font-family: var(--font-geist-sans), "Trebuchet MS", sans-serif; backgrou
 .breadcrumbs strong { color: var(--ink); }
 .icon-button { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: var(--white); color: var(--teal); transition: transform .2s, border-color .2s; }
 .icon-button:hover { transform: translateY(-2px); border-color: var(--orange); }
+.notification-wrap { position: relative; }
+.notification-panel { position: absolute; top: 46px; right: 0; z-index: 5; width: min(330px, calc(100vw - 34px)); padding: 15px; border: 1px solid var(--line); border-radius: 5px; background: var(--white); color: var(--ink); box-shadow: var(--shadow-lift); animation: panel-in .18s ease both; }
+.notification-heading { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.notification-heading button { border: 0; background: none; color: var(--orange); font-size: 10px; font-weight: 800; }
+.notification-item { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.notification-item:last-child { border-bottom: 0; }
+.notification-item strong, .notification-item small { display: block; }
+.notification-item strong { font-size: 11px; font-weight: 700; }
+.notification-item small { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.notification-mark { width: 7px; height: 7px; margin-top: 4px; flex: 0 0 7px; border-radius: 50%; background: var(--orange); }
 .content { max-width: 1320px; padding: 52px 5vw 70px; }
 .eyebrow { letter-spacing: 2.5px; }
 .dark-eyebrow { color: var(--teal); }
@@ -80,6 +90,10 @@ body { font-family: var(--font-geist-sans), "Trebuchet MS", sans-serif; backgrou
 .secondary-button, .small-action, .filter-button { border: 1px solid #cbdad4; border-radius: 3px; background: rgba(255,253,248,.7); color: var(--teal); font-weight: 700; transition: background .2s, transform .2s; }
 .secondary-button:hover, .small-action:hover, .filter-button:hover { background: var(--white); transform: translateY(-1px); }
 .project-toolbar { padding: 12px; border: 1px solid var(--line); background: rgba(255,253,248,.65); border-radius: 5px; }
+.filter-select { display: inline-flex; align-items: center; gap: 8px; margin-left: 9px; color: var(--muted); font-size: 10px; font-weight: 800; }
+.filter-select select { appearance: auto; padding: 10px 28px 10px 12px; cursor: pointer; }
+.detail-actions { display: flex; gap: 9px; }
+.theme-dark .notification-panel { background: var(--white); border-color: var(--line); }
 .search-box { border-color: transparent; background: transparent; }
 .search-box input { background: transparent; }
 .project-grid { gap: 22px; }

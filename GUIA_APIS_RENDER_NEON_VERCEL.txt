@@ -1,0 +1,335 @@
+GUIA EXACTA DE CONEXION: VERCEL + RENDER + NEON SQL
+====================================================
+
+Fecha de revision: 2026-08-27
+Proyecto: Project Planner
+
+VALORES REALES ENCONTRADOS EN ESTE PROYECTO
+--------------------------------------------
+
+El archivo local .env contiene una DATABASE_URL real de Neon con estos datos:
+
+  Protocolo: postgresql
+  Usuario: neondb_owner
+  Host: ep-polished-dream-ax05mzle-pooler.c-4.us-east-2.aws.neon.tech
+  Base de datos: neondb
+  Parametros: sslmode=require&channel_binding=require
+
+La contrasena no se copia en esta guia. Debes usar la que ya esta guardada en
+.env y pegarla como secreto en Render. Si esa contrasena fue compartida fuera
+de tu equipo, regenerala en Neon antes de desplegar.
+
+Valores reales confirmados para este proyecto:
+
+  NEXT_PUBLIC_API_URL=https://planner-backend-deig.onrender.com
+  FRONTEND_ORIGIN=https://plannerbackend.vercel.app,http://localhost:3000
+  NEXT_PUBLIC_NEON_AUTH_URL=https://ep-polished-dream-ax05mzle.neonauth.c-4.us-east-2.aws.neon.tech/neondb/auth
+  NEXT_PUBLIC_NEON_DATA_API_URL=https://ep-polished-dream-ax05mzle.apirest.c-4.us-east-2.aws.neon.tech/neondb/rest/v1
+  NEON_DATA_API_URL=https://ep-polished-dream-ax05mzle.apirest.c-4.us-east-2.aws.neon.tech/neondb/rest/v1
+
+Usa exactamente esos valores, sin barra final en FRONTEND_ORIGIN.
+Las variables NEXT_PUBLIC_NEON_AUTH_URL y NEXT_PUBLIC_NEON_DATA_API_URL son las
+que usa el cliente Neon del frontend. NEON_DATA_API_URL se conserva como alias
+de referencia para Render, pero no debe reemplazar DATABASE_URL.
+
+1. ARQUITECTURA CORRECTA
+-------------------------
+
+El navegador NO debe conectarse directamente a Neon SQL.
+
+Flujo correcto:
+
+  Usuario/navegador
+        |
+        | HTTPS: NEXT_PUBLIC_API_URL
+        v
+  Frontend Next.js en Vercel
+        |
+        | fetch() hacia la API Express
+        v
+  Backend Express + Prisma en Render
+        |
+        | DATABASE_URL privada
+        v
+  Neon SQL/PostgreSQL
+
+Responsabilidad de cada servicio:
+
+- Vercel: sirve la interfaz Next.js.
+- Render: ejecuta el servidor Express y expone la API HTTP.
+- Neon SQL: almacena los registros PostgreSQL.
+- Prisma: traduce las operaciones del backend a consultas SQL.
+
+Vercel no necesita ni debe tener DATABASE_URL.
+Neon no necesita conocer la URL de Vercel.
+Render es el unico servicio que debe tener DATABASE_URL.
+
+La URL de Neon Data API tampoco se configura como NEXT_PUBLIC_API_URL. Si algun
+dia se implementan llamadas directas a Data API, esa integracion necesitara su
+autenticacion y sus permisos; no debe exponerse una credencial privada en el
+navegador.
+
+2. CONFIGURACION DE RENDER (BACKEND)
+-------------------------------------
+
+Servicio recomendado: Web Service
+
+Directorio raiz:
+- Si Render apunta al repositorio completo: .
+- No usar frontend como directorio raiz del backend.
+
+Runtime: Node
+Build Command:
+  npm install && npm run build
+
+Start Command:
+  npm start
+
+El backend ya usa process.env.PORT, que es lo correcto para Render.
+No fijar manualmente el puerto 3001 en Render.
+
+Variables de entorno en Render:
+
+NODE_VERSION=22.12.0
+
+DATABASE_URL=postgresql://USUARIO:CONTRASENA@HOST-NEON/BASE?sslmode=require&channel_binding=require
+
+FRONTEND_ORIGIN=https://plannerbackend.vercel.app,http://localhost:3000
+
+Importante:
+- Node 22.12.0 coincide con la versión declarada en Render y cumple el requisito engines del package.json del backend.
+- El valor exacto de este proyecto es https://plannerbackend.vercel.app,http://localhost:3000.
+- No poner comillas alrededor del valor en Render.
+- No publicar DATABASE_URL en GitHub, Vercel ni en el navegador.
+- El backend permite por defecto localhost:3000 y https://plannerbackend.vercel.app,
+  pero FRONTEND_ORIGIN reemplaza esa lista cuando se configura en Render.
+- Por eso el dominio real de Vercel debe estar escrito exactamente, incluyendo https y
+  sin una barra final.
+
+Health check para Render:
+  GET /
+
+Respuesta esperada:
+  {"mensaje":"¡El servidor de Project Planner está funcionando!","estado":"Activo"}
+
+URL final del backend:
+  https://planner-backend-deig.onrender.com
+
+3. CONFIGURACION DE NEON SQL
+----------------------------
+
+En Neon:
+
+1. Crear o abrir el proyecto PostgreSQL.
+2. Copiar la cadena de conexion pooled si Neon la ofrece.
+3. Usar esa cadena completa como DATABASE_URL en Render.
+4. Mantener sslmode=require.
+5. No pegar la cadena en el codigo ni en NEXT_PUBLIC_API_URL.
+
+Desde el repositorio, Prisma usa DATABASE_URL en prisma.config.ts y el backend
+usa la misma variable al crear el Pool de PostgreSQL.
+
+Migracion inicial, ejecutada desde un entorno que tenga DATABASE_URL configurada:
+  npx prisma migrate deploy
+
+Generacion del cliente Prisma:
+  npx prisma generate
+
+El build del proyecto ya ejecuta npx prisma generate antes de TypeScript.
+En Render conviene ejecutar la migracion antes de probar POST/ PATCH. La migracion
+crea las tablas Project, Task, Milestone, PerformanceMetric, DriveLink,
+TeamMember, TeamStatus y TechnicalArea.
+
+4. CONFIGURACION DE VERCEL (FRONTEND)
+--------------------------------------
+
+Proyecto de Vercel:
+- Root Directory: frontend
+- Framework preset: Next.js
+- Build Command: npm run build
+- Install Command: npm install
+- Output: dejar la configuracion automatica de Next.js
+
+Variable de entorno en Vercel, para Production y Preview si corresponde:
+
+NEXT_PUBLIC_API_URL=https://planner-backend-deig.onrender.com
+
+Reglas:
+- Debe comenzar con NEXT_PUBLIC_ porque la usa el codigo del navegador.
+- Debe ser la URL publica exacta de Render, no la URL de Neon.
+- No agregar una barra final: usar https://planner-backend-deig.onrender.com
+- Despues de cambiarla, hacer un nuevo deploy en Vercel.
+
+El frontend calcula actualmente:
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+Por tanto, si NEXT_PUBLIC_API_URL no existe durante el build/deploy, Vercel
+intentara llamar a localhost:3001 del dispositivo del usuario. Eso hace fallar
+la API y activa el guardado local.
+
+5. API EXISTENTE DEL BACKEND
+----------------------------
+
+Base URL:
+  https://planner-backend-deig.onrender.com
+
+Prueba:
+  GET /
+
+Proyectos:
+  GET    /projects
+  GET    /projects/:id
+  POST   /projects
+  PATCH  /projects/:id
+  DELETE /projects/:id
+
+Cuerpo minimo de POST /projects:
+  {
+    "name": "Proyecto de prueba",
+    "startDate": "2026-08-27",
+    "endDate": "2026-09-27",
+    "budget": 1000,
+    "durationMonths": 1,
+    "ownerName": "Administrador"
+  }
+
+Areas tecnicas:
+  GET  /technical-areas
+  POST /technical-areas
+
+Estados de equipo:
+  GET  /team-statuses
+  POST /team-statuses
+
+Tareas:
+  POST   /projects/:projectId/tasks
+  PATCH  /tasks/:id
+  DELETE /tasks/:id
+
+Participantes:
+  POST   /projects/:projectId/team-members
+  DELETE /team-members/:id
+
+Hitos:
+  POST   /projects/:projectId/milestones
+  PATCH  /milestones/:id
+  DELETE /milestones/:id
+
+Metricas de rendimiento:
+  POST   /tasks/:taskId/performance-metrics
+  DELETE /performance-metrics/:id
+
+Enlaces de Drive:
+  POST   /tasks/:taskId/drive-links
+  DELETE /drive-links/:id
+
+6. POR QUE APARECIA "SE GUARDARA EN ESTE NAVEGADOR"
+----------------------------------------------------
+
+Ese mensaje no viene de Neon. Esta escrito en el frontend y aparece cuando falla
+la llamada fetch(`${apiUrl}/projects`).
+
+Antes del parche 001, el frontend hacia esto:
+
+A. Al entrar al panel, intenta GET /projects.
+B. Si funciona, muestra los proyectos devueltos por Render/Neon.
+C. Si falla, lee localStorage con la clave project-planner-projects.
+D. Al crear un proyecto, intenta POST /projects.
+E. Si fallaba, creaba un ID LOCAL-..., lo guardaba en localStorage y mostraba el aviso.
+
+El parche 001 ya elimino ese comportamiento. Actualmente un fallo de API muestra
+un error y no guarda proyectos en el navegador.
+
+Las causas mas probables son:
+
+- Falta NEXT_PUBLIC_API_URL en Vercel.
+- NEXT_PUBLIC_API_URL apunta a localhost o a una URL equivocada.
+- El backend de Render esta dormido, detenido o desplegado con error.
+- FRONTEND_ORIGIN no contiene el dominio real de Vercel y CORS bloquea la llamada.
+- DATABASE_URL falta, es incorrecta o Neon rechaza la conexion.
+- Las tablas no fueron creadas con prisma migrate deploy.
+- Se esta usando un dominio Preview de Vercel que no esta incluido en CORS.
+
+7. DATOS QUE SI SE GUARDAN EN EL NAVEGADOR
+------------------------------------------
+
+Esto es independiente de la base de datos:
+
+- project-planner-theme: guarda el tema claro/oscuro. Es normal.
+- project-planner-projects: solo deberia usarse como fallback cuando la API falla.
+
+El codigo actual tambien escribe project-planner-projects al eliminar proyectos,
+incluso cuando el proyecto remoto se elimina correctamente. Eso no convierte el
+proyecto remoto en local, pero puede dejar una copia local antigua.
+
+Ademas, updateProgress() solo cambia el estado React de las tareas. Actualmente no
+hace PATCH /tasks/:id, por lo que ese cambio de progreso de tarea no se persiste en
+Neon al recargar. El boton de nueva tarea tampoco tiene implementada una llamada
+POST en el frontend actual.
+
+8. PRUEBA EXACTA PASO A PASO
+----------------------------
+
+1. Abrir en el navegador:
+  https://planner-backend-deig.onrender.com/
+
+2. Debe responder JSON con estado Activo.
+
+3. Abrir:
+  https://planner-backend-deig.onrender.com/projects
+
+4. Si la base esta vacia, debe responder [] y no un error 500.
+
+5. Crear un proyecto desde la interfaz publicada en Vercel.
+
+6. En Neon, abrir el SQL Editor y comprobar:
+   SELECT id, name, created_at FROM "Project" ORDER BY created_at DESC;
+
+7. Recargar la pagina de Vercel. El proyecto debe seguir apareciendo aunque se
+   borre project-planner-projects del almacenamiento del navegador.
+
+Prueba desde PowerShell, sustituyendo la URL:
+
+  Invoke-RestMethod -Method Get -Uri "https://planner-backend-deig.onrender.com/"
+  Invoke-RestMethod -Method Get -Uri "https://planner-backend-deig.onrender.com/projects"
+
+Crear un proyecto desde PowerShell:
+
+  $body = @{ name = "Prueba API"; startDate = "2026-08-27"; endDate = "2026-09-27"; budget = 1000; durationMonths = 1; ownerName = "Prueba" } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "https://planner-backend-deig.onrender.com/projects" -ContentType "application/json" -Body $body
+
+9. CRITERIO FINAL DE QUE ESTA BIEN
+----------------------------------
+
+La configuracion esta correcta cuando se cumplen las cuatro condiciones:
+
+- GET / desde Render responde estado Activo.
+- GET /projects desde la URL publica devuelve los datos de Neon.
+- Crear un proyecto devuelve un ID UUID, no un ID LOCAL-.
+- El proyecto aparece en Neon y sigue apareciendo despues de recargar Vercel.
+
+Si aparece "API no disponible", abrir DevTools del navegador, pestaña Network,
+y revisar la solicitud GET/POST a /projects. El error indicara si es CORS, URL,
+Render o base de datos. No se debe aceptar el fallback local como prueba de que
+la informacion llego a Neon: un ID LOCAL- confirma exactamente lo contrario.
+
+10. ORDEN RECOMENDADO DE CONFIGURACION
+--------------------------------------
+
+1. Neon: obtener DATABASE_URL.
+2. Render: configurar DATABASE_URL y FRONTEND_ORIGIN.
+3. Render: desplegar backend.
+4. Render: ejecutar npx prisma migrate deploy si las tablas no existen.
+5. Probar GET / y GET /projects.
+6. Vercel: configurar NEXT_PUBLIC_API_URL con la URL de Render.
+7. Vercel: volver a desplegar.
+8. Crear una prueba y verificarla en Neon.
+
+NOTA DE SEGURIDAD
+-----------------
+
+La pantalla de acceso actual es una pantalla de demostracion: el boton cambia
+el estado del frontend, pero no autentica contra el backend. La API tampoco tiene
+login ni tokens. Antes de usar datos reales, se debe agregar autenticacion y
+autorizacion para que cualquier persona que conozca la URL no pueda crear,
+modificar o eliminar proyectos.
