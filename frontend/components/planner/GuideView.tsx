@@ -15,112 +15,149 @@ type Section = {
   tip?: string;
 };
 
-/* — Ilustraciones (mini “capturas” dibujadas con el propio sistema visual) — */
+/* — Figuras de referencia (dibujadas con el propio sistema visual) — */
 
-function ShotFrame({ label, children }: { label: string; children: ReactNode }) {
+function Shot({ caption, children }: { caption: string; children: ReactNode }) {
   return (
     <figure className="guide-shot">
-      <div className="guide-shot-canvas">{children}</div>
-      <figcaption>{label}</figcaption>
+      <div className="guide-shot-bar" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+      <div className="guide-shot-body">{children}</div>
+      <figcaption>{caption}</figcaption>
     </figure>
   );
 }
 
 function FormShot() {
   return (
-    <ShotFrame label="Formulario de expediente: los campos obligatorios se marcan en rojo solo al intentar guardar.">
-      <div className="guide-mini-form">
-        <span className="guide-mini-label">Nombre del proyecto</span>
-        <span className="guide-mini-input" />
-        <div className="guide-mini-row">
-          <span>
-            <span className="guide-mini-label">Fecha de inicio</span>
-            <span className="guide-mini-input" />
-          </span>
-          <span>
-            <span className="guide-mini-label">Fecha de término</span>
-            <span className="guide-mini-input is-bad" />
-          </span>
+    <Shot caption="Al guardar, los campos sin completar se marcan en rojo; mientras escribes solo ves la ayuda.">
+      <div className="gs-form">
+        <label>
+          Nombre del proyecto
+          <span className="gs-input has-text">Ampliación planta norte</span>
+        </label>
+        <div className="gs-form-two">
+          <label>
+            Fecha de inicio
+            <span className="gs-input has-text">2026-03-01</span>
+          </label>
+          <label>
+            Fecha de término
+            <span className="gs-input is-bad" />
+            <span className="gs-input-error">Obligatorio</span>
+          </label>
         </div>
-        <span className="guide-mini-btn">Crear expediente</span>
+        <span className="gs-btn">Crear expediente</span>
       </div>
-    </ShotFrame>
+    </Shot>
   );
 }
 
 function GanttShot() {
   return (
-    <ShotFrame label="Anatomía del cronograma: cada barra es una tarea; la línea vertical es “hoy”.">
-      <svg viewBox="0 0 320 120" className="guide-svg" role="img" aria-label="Diagrama del cronograma Gantt">
-        <line x1="8" y1="20" x2="312" y2="20" stroke="var(--border)" />
-        {["S1", "S2", "S3", "S4"].map((t, i) => (
-          <text key={t} x={20 + i * 76} y="14" className="guide-svg-tick">
-            {t}
-          </text>
-        ))}
-        <rect x="8" y="34" width="304" height="20" rx="6" fill="var(--surface-3)" />
-        <rect x="24" y="36" width="150" height="16" rx="5" fill="var(--accent)" />
-        <rect x="8" y="66" width="304" height="20" rx="6" fill="var(--surface-3)" />
-        <rect x="150" y="68" width="120" height="16" rx="5" fill="var(--success)" />
-        <line x1="120" y1="28" x2="120" y2="94" stroke="var(--warning)" strokeWidth="2" />
-        <circle cx="120" cy="28" r="3" fill="var(--warning)" />
-        <text x="126" y="108" className="guide-svg-note">
-          hoy
-        </text>
-        <text x="26" y="102" className="guide-svg-note">
-          tarea en curso · tarea completada
-        </text>
-      </svg>
-    </ShotFrame>
+    <Shot caption="Cada barra es una tarea a lo largo del tiempo. La línea amarilla marca el día de hoy.">
+      <div className="gs-gantt">
+        <div className="gs-gantt-today" style={{ left: "46%" }}>
+          <span>Hoy</span>
+        </div>
+        <div className="gs-gantt-row">
+          <span className="gs-gantt-name">Excavación</span>
+          <span className="gs-gantt-track">
+            <span className="gs-bar is-progress" style={{ left: "6%", width: "44%" }} />
+          </span>
+        </div>
+        <div className="gs-gantt-row">
+          <span className="gs-gantt-name">Cimentación</span>
+          <span className="gs-gantt-track">
+            <span className="gs-bar is-done" style={{ left: "40%", width: "38%" }} />
+          </span>
+        </div>
+        <div className="gs-gantt-row">
+          <span className="gs-gantt-name">Estructura</span>
+          <span className="gs-gantt-track">
+            <span className="gs-bar" style={{ left: "70%", width: "26%" }} />
+          </span>
+        </div>
+      </div>
+      <div className="gs-legend">
+        <span>
+          <i className="is-progress" /> En curso
+        </span>
+        <span>
+          <i className="is-done" /> Completada
+        </span>
+        <span>
+          <i className="is-planned" /> Planificada
+        </span>
+        <span>
+          <i className="is-today" /> Hoy
+        </span>
+      </div>
+    </Shot>
   );
 }
 
 function ProgressShot() {
   return (
-    <ShotFrame label="El progreso de cada tarea se ajusta con el control deslizante; el % del expediente es el promedio.">
-      <div className="guide-mini-progress">
-        <span className="guide-mini-label">Ajustar progreso — Excavación</span>
-        <span className="guide-mini-slider">
-          <span className="guide-mini-slider-fill" />
-          <span className="guide-mini-slider-knob" />
+    <Shot caption="El deslizante fija el avance de la tarea; el % del expediente es el promedio de sus tareas.">
+      <div className="gs-progress">
+        <div className="gs-progress-head">
+          <span>Progreso de «Excavación»</span>
+          <strong>45%</strong>
+        </div>
+        <span className="gs-progress-track">
+          <span className="gs-progress-fill" style={{ width: "45%" }} />
+          <span className="gs-progress-knob" style={{ left: "45%" }} />
         </span>
-        <span className="guide-mini-hint">45% completado</span>
+        <p className="gs-progress-note">Arrastra y suelta: el avance se guarda al soltar.</p>
       </div>
-    </ShotFrame>
+    </Shot>
   );
 }
 
 function ShareShot() {
   return (
-    <ShotFrame label="Enlace público: elige el permiso, cópialo y compártelo. “Regenerar” invalida el anterior.">
-      <div className="guide-mini-share">
-        <span className="badge tone-accent">Editor</span>
-        <span className="guide-mini-input">https://…/s/9f2c…</span>
-        <span className="guide-mini-chip">Copiar</span>
-        <span className="guide-mini-chip">Regenerar</span>
+    <Shot caption="Genera un enlace con permiso de lectura o de edición. «Regenerar» anula el anterior al instante.">
+      <div className="gs-share">
+        <div className="gs-share-row">
+          <span className="badge tone-accent">Editor</span>
+          <span className="gs-input has-text is-mono">https://…/s/9f2c8a1b</span>
+        </div>
+        <div className="gs-share-actions">
+          <span className="gs-chip">
+            <Icon name="link" size={13} /> Copiar
+          </span>
+          <span className="gs-chip">
+            <Icon name="link" size={13} /> Regenerar
+          </span>
+        </div>
       </div>
-    </ShotFrame>
+    </Shot>
   );
 }
 
 function CatalogShot() {
   return (
-    <ShotFrame label="Catálogos: un área o estado en uso no se puede eliminar (el botón queda desactivado).">
-      <div className="guide-mini-catalog">
-        <span>
-          Obra civil <span className="catalog-inuse">En uso · 2 tareas</span>
-        </span>
-        <span className="guide-mini-trash is-off">
-          <Icon name="trash" size={13} />
-        </span>
+    <Shot caption="Un área o estado en uso no se puede borrar: el botón queda desactivado y avisa de cuántos lo usan.">
+      <div className="gs-catalog">
+        <div className="gs-catalog-row">
+          <span>Obra civil</span>
+          <span className="catalog-inuse">En uso · 2 tareas</span>
+          <span className="gs-trash is-off">
+            <Icon name="trash" size={13} />
+          </span>
+        </div>
+        <div className="gs-catalog-row">
+          <span>Instalaciones</span>
+          <span className="gs-trash">
+            <Icon name="trash" size={13} />
+          </span>
+        </div>
       </div>
-      <div className="guide-mini-catalog">
-        <span>Instalaciones</span>
-        <span className="guide-mini-trash">
-          <Icon name="trash" size={13} />
-        </span>
-      </div>
-    </ShotFrame>
+    </Shot>
   );
 }
 
@@ -132,9 +169,14 @@ const SECTIONS: Section[] = [
     intro:
       "Al entrar verás el Dashboard con el resumen de toda la cartera. La barra lateral izquierda es el menú principal.",
     steps: [
-      { do: "Pulsa «Acceder al sistema» en la pantalla de inicio.", result: "Entras al Dashboard (sesión de demostración)." },
+      {
+        do: "Pulsa «Acceder al sistema» en la pantalla de inicio.",
+        result: "Entras al Dashboard (sesión de demostración).",
+      },
       { do: "Usa la barra lateral para moverte: Dashboard, Mis expedientes, Catálogos y esta Guía." },
-      { do: "Arriba a la derecha tienes la búsqueda, las notificaciones y el cambio de tema claro/oscuro." },
+      {
+        do: "Arriba a la derecha tienes la búsqueda, las notificaciones y el cambio de tema claro/oscuro.",
+      },
     ],
   },
   {
@@ -147,11 +189,11 @@ const SECTIONS: Section[] = [
       { do: "Rellena nombre, responsable, presupuesto y las fechas de inicio y término." },
       {
         do: "Pulsa «Crear expediente».",
-        result: "El expediente aparece en la lista. La duración en meses se calcula sola.",
+        result: "Aparece en la lista. La duración en meses se calcula sola.",
       },
     ],
     figure: <FormShot />,
-    tip: "Mientras escribes, cada campo muestra una ventana con el ejemplo y los requisitos (obligatorio, máximo de caracteres, formato de fecha…). El borde rojo solo aparece si intentas guardar con algo incompleto.",
+    tip: "Al enfocar un campo aparece una ventana con un ejemplo y los requisitos, que se marcan en verde según los cumples. El borde rojo solo sale si intentas guardar con algo incompleto.",
   },
   {
     id: "equipo",
@@ -161,7 +203,9 @@ const SECTIONS: Section[] = [
     steps: [
       { do: "Abre el expediente y, en «Resumen», pulsa «Añadir» en «Participantes»." },
       { do: "Escribe el nombre y elige el estado en la lista." },
-      { do: "Si el estado no existe todavía, pulsa «Nuevo» y créalo ahí mismo." },
+      {
+        do: "¿El estado no existe todavía? Pulsa «Nuevo» y créalo sin salir del formulario.",
+      },
     ],
   },
   {
@@ -196,7 +240,10 @@ const SECTIONS: Section[] = [
     intro: "El progreso se lleva tarea por tarea; el porcentaje del expediente es el promedio.",
     steps: [
       { do: "En el Gantt, pulsa una tarea para abrir su control de progreso." },
-      { do: "Arrastra el deslizante y suéltalo.", result: "El avance se guarda y el % del expediente se recalcula." },
+      {
+        do: "Arrastra el deslizante y suéltalo.",
+        result: "El avance se guarda y el % del expediente se recalcula.",
+      },
     ],
     figure: <ProgressShot />,
   },
@@ -216,7 +263,7 @@ const SECTIONS: Section[] = [
     icon: "tags",
     title: "Catálogos del sistema",
     intro:
-      "Las «áreas técnicas» (para las tareas) y los «estados de equipo» (para los participantes) se administran en «Catálogos».",
+      "Las «áreas técnicas» (para las tareas) y los «estados de equipo» (para los participantes) se administran aquí.",
     steps: [
       { do: "Ve a «Catálogos» en la barra lateral." },
       { do: "Escribe el nombre y pulsa «Añadir» para crear un elemento." },
@@ -235,7 +282,10 @@ const SECTIONS: Section[] = [
     steps: [
       { do: "Abre el expediente y pulsa «Compartir»." },
       { do: "Elige el permiso: «Solo lectura» o «Editor», y pulsa «Generar enlace»." },
-      { do: "Copia el enlace y compártelo. «Regenerar» crea uno nuevo y anula el anterior al instante." },
+      {
+        do: "Copia el enlace y compártelo.",
+        result: "«Regenerar» crea uno nuevo y anula el anterior de inmediato.",
+      },
     ],
     figure: <ShareShot />,
   },
@@ -243,10 +293,10 @@ const SECTIONS: Section[] = [
     id: "avisos",
     icon: "bell",
     title: "Notificaciones y tema",
-    intro: "La campana guarda un historial de lo que vas haciendo.",
+    intro: "La campana guarda un historial de lo que vas haciendo en el sistema.",
     steps: [
       { do: "Pulsa la campana para ver los avisos." },
-      { do: "Usa la «x» de cada aviso para descartarlo, o «Limpiar todo» para vaciar la bandeja." },
+      { do: "Usa la «x» de un aviso para descartarlo, o «Limpiar todo» para vaciar la bandeja." },
       { do: "El icono de sol/luna cambia entre tema claro y oscuro; tu elección se recuerda." },
     ],
   },
@@ -268,7 +318,7 @@ export function GuideView({ onNavigate }: { onNavigate: (view: ActiveView) => vo
           <h1>Manual del sistema, paso a paso</h1>
           <p className="hero-lead">
             Un recorrido por todo lo que puedes hacer en Project Planner, en el orden en que
-            normalmente lo harías. Cada apartado tiene los pasos y una vista de referencia.
+            normalmente lo harías. Cada apartado tiene sus pasos y una figura de referencia.
           </p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => onNavigate("projects")}>
@@ -296,32 +346,44 @@ export function GuideView({ onNavigate }: { onNavigate: (view: ActiveView) => vo
           <section key={section.id} id={`guide-${section.id}`} className="guide-section panel">
             <div className="guide-section-head">
               <span className="guide-section-num">{index + 1}</span>
-              <span className="stat-icon">
-                <Icon name={section.icon} size={16} />
+              <span className="guide-section-icon">
+                <Icon name={section.icon} size={17} />
               </span>
               <div>
                 <h2>{section.title}</h2>
-                <p className="hero-lead">{section.intro}</p>
+                <p>{section.intro}</p>
               </div>
             </div>
 
-            <ol className="guide-steps">
-              {section.steps.map((step, stepIndex) => (
-                <li key={stepIndex}>
-                  <span>{step.do}</span>
-                  {step.result && (
-                    <span className="guide-step-result">
-                      <Icon name="arrow-right" size={13} />
-                      {step.result}
-                    </span>
+            <div className={section.figure ? "guide-section-body has-figure" : "guide-section-body"}>
+              <ol className="guide-steps">
+                {section.steps.map((step, stepIndex) => (
+                  <li key={stepIndex}>
+                    <span className="guide-step-do">{step.do}</span>
+                    {step.result && (
+                      <span className="guide-step-result">
+                        <Icon name="check" size={13} />
+                        {step.result}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+
+              {section.figure && (
+                <div className="guide-figure-col">
+                  {section.figure}
+                  {section.tip && (
+                    <p className="guide-tip">
+                      <Icon name="target" size={14} />
+                      <span>{section.tip}</span>
+                    </p>
                   )}
-                </li>
-              ))}
-            </ol>
+                </div>
+              )}
+            </div>
 
-            {section.figure}
-
-            {section.tip && (
+            {!section.figure && section.tip && (
               <p className="guide-tip">
                 <Icon name="target" size={14} />
                 <span>{section.tip}</span>
