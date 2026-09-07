@@ -58,10 +58,30 @@ API). Se conservan las reglas responsive y las de `.login-*`.
 - Sombras con `rgba(15,22,41,…)` que se perdían en oscuro (`.ring-center`,
   `.gantt-bar`) pasan a tokens de elevación / negro translúcido.
 
+## Validación en todos los formularios (posterior)
+
+Antes solo el alta/edición de expediente mostraba el borde rojo y la ventana
+emergente con requisitos y ejemplo. Ahora el mismo trato cubre todos:
+
+- **`SelectOrCreate`** (área técnica en la tarea, estado en el participante):
+  nuevas props `required` / `showErrors` / `example`. Borde rojo y aviso
+  «Selecciona una opción o crea una nueva» si se envía vacío; ventana de ayuda al
+  enfocar el `select` (y también el campo de «crear nueva», con sus reglas).
+- **Alta de tarea → «Depende de»**: pasa a `ValidatedField` (opcional; solo
+  avisa si supera 300 caracteres o lleva `< >`).
+- **Edición de tarea → métricas y enlaces de Drive**: los cuatro campos (unidad,
+  ritmo por día, divisor, dirección del enlace) usan `ValidatedField` con sus
+  reglas — el enlace exige empezar por `http://` o `https://`, el divisor un
+  entero ≥ 1.
+- **Configuración → catálogos**: el campo de alta usa `ValidatedField`
+  (obligatorio, ≤ 300, sin `< >`).
+- `ValidatedField` admite `type="url"`.
+
 ## Validación
 
 - `npx tsc --noEmit`, `npx eslint`, `npx next build`: correctos.
 - Probado contra Neon: alta y baja de área técnica desde la vista de
   configuración; navegación entre Dashboard / Expedientes / Detalle / Gantt /
   Configuración; modales con la nueva estructura (cerrar con Escape y clic
-  fuera); modo claro y oscuro.
+  fuera); envío vacío de alta de tarea, métricas y catálogos → todos los campos
+  se marcan en rojo con su motivo; modo claro y oscuro.

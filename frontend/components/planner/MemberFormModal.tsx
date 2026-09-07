@@ -60,6 +60,7 @@ export function MemberFormModal({
         />
         <SelectOrCreate
           label="Estado en el equipo"
+          example="Activo, Inactivo, De baja"
           options={statuses.map((status) => ({ id: status.id, label: status.type }))}
           value={statusId}
           onChange={setStatusId}
@@ -69,6 +70,8 @@ export function MemberFormModal({
           }}
           placeholderOption="Selecciona un estado"
           newPlaceholder="Nombre del estado (Activo…)"
+          required
+          showErrors={showErrors}
         />
         {showErrors && invalid && <p className="form-error">Completa el nombre y el estado.</p>}
         {error && <p className="form-error">{error}</p>}

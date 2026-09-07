@@ -3,16 +3,24 @@
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Primitives";
+import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import type { TeamStatusOption, TechnicalArea } from "@/lib/types";
 
 type Item = { id: string; label: string };
+
+const nameRules: Rule[] = [
+  { label: "Obligatorio", test: (v) => v.trim().length > 0 },
+  { label: "Máximo 300 caracteres", test: (v) => v.trim().length <= 300 },
+  { label: "Sin los símbolos < o >", test: (v) => !/[<>]/.test(v) },
+];
 
 function CatalogPanel({
   eyebrow,
   title,
   hint,
   icon,
-  placeholder,
+  label,
+  example,
   items,
   onCreate,
   onDelete,
@@ -21,24 +29,31 @@ function CatalogPanel({
   title: string;
   hint: string;
   icon: "calendar" | "users";
-  placeholder: string;
+  label: string;
+  example: string;
   items: Item[];
   onCreate: (name: string) => Promise<void>;
   onDelete: (id: string, label: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [error, setError] = useState("");
+
+  const invalid = fieldError(draft, nameRules) !== null;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const value = draft.trim();
-    if (!value) return;
+    if (invalid) {
+      setShowErrors(true);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await onCreate(value);
+      await onCreate(draft.trim());
       setDraft("");
+      setShowErrors(false);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "No fue posible crear");
     } finally {
@@ -94,11 +109,14 @@ function CatalogPanel({
       )}
 
       <form className="catalog-add" onSubmit={submit}>
-        <input
+        <ValidatedField
+          label={label}
+          example={example}
+          rules={nameRules}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={placeholder}
-          aria-label={`Nuevo · ${title}`}
+          onChange={setDraft}
+          showErrors={showErrors}
+          placement="top"
         />
         <button type="submit" className="btn btn-primary" disabled={busy}>
           <Icon name="plus" size={15} />
@@ -145,7 +163,8 @@ export function SettingsView({
           title="Áreas técnicas"
           hint="Cada tarea del cronograma pertenece a un área técnica (Obra civil, Estructura…)."
           icon="calendar"
-          placeholder="Nombre del área (Obra civil…)"
+          label="Nombre del área"
+          example="Obra civil, Estructura, Instalaciones"
           items={technicalAreas.map((area) => ({ id: area.id, label: area.name }))}
           onCreate={onCreateArea}
           onDelete={onDeleteArea}
@@ -155,7 +174,8 @@ export function SettingsView({
           title="Estados de equipo"
           hint="El estado que puede tener un participante dentro de un proyecto (Activo, Inactivo…)."
           icon="users"
-          placeholder="Nombre del estado (Activo…)"
+          label="Nombre del estado"
+          example="Activo, Inactivo, De baja"
           items={teamStatuses.map((status) => ({ id: status.id, label: status.type }))}
           onCreate={onCreateStatus}
           onDelete={onDeleteStatus}

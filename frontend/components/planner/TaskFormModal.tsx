@@ -13,10 +13,33 @@ const notEmpty = (v: string) => v.trim().length > 0;
 const maxLen = (v: string) => v.trim().length <= 300;
 const noAngles = (v: string) => !/[<>]/.test(v);
 const validDate = (v: string) => v === "" || !Number.isNaN(Date.parse(v));
+const isNumber = (v: string) => v.trim() === "" || Number.isFinite(Number(v));
+const isInteger = (v: string) => v.trim() === "" || /^\d+$/.test(v.trim());
+const isHttpUrl = (v: string) => v.trim() === "" || /^https?:\/\/\S+/i.test(v.trim());
+
 const textRules: Rule[] = [
   { label: "Obligatorio", test: notEmpty },
   { label: "Máximo 300 caracteres", test: maxLen },
   { label: "Sin los símbolos < o >", test: noAngles },
+];
+const optionalTextRules: Rule[] = [
+  { label: "Máximo 300 caracteres", test: maxLen },
+  { label: "Sin los símbolos < o >", test: noAngles },
+];
+const unitRules: Rule[] = textRules;
+const rateRules: Rule[] = [
+  { label: "Obligatorio", test: notEmpty },
+  { label: "Solo números", test: isNumber },
+  { label: "Mayor o igual a 0", test: (v) => v.trim() === "" || Number(v) >= 0 },
+];
+const divisorRules: Rule[] = [
+  { label: "Obligatorio", test: notEmpty },
+  { label: "Número entero", test: isInteger },
+  { label: "Mayor o igual a 1", test: (v) => v.trim() === "" || Number(v) >= 1 },
+];
+const urlRules: Rule[] = [
+  { label: "Obligatorio", test: notEmpty },
+  { label: "Debe empezar por http:// o https://", test: isHttpUrl },
 ];
 
 const EMPTY: TaskFormValues = {
@@ -45,8 +68,16 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
   const [metricUnit, setMetricUnit] = useState("");
   const [metricRate, setMetricRate] = useState("");
   const [metricDivisor, setMetricDivisor] = useState("1");
+  const [metricErrors, setMetricErrors] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkErrors, setLinkErrors] = useState(false);
   const [error, setError] = useState("");
+
+  const metricInvalid =
+    fieldError(metricUnit, unitRules) !== null ||
+    fieldError(metricRate, rateRules) !== null ||
+    fieldError(metricDivisor, divisorRules) !== null;
+  const linkInvalid = fieldError(linkUrl, urlRules) !== null;
 
   async function run(action: () => Promise<unknown>) {
     setError("");
@@ -56,6 +87,36 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "No fue posible completar la acción");
     }
+  }
+
+  function addMetric() {
+    if (metricInvalid) {
+      setMetricErrors(true);
+      return;
+    }
+    run(async () => {
+      await api.createMetric(task.id, {
+        unit: metricUnit.trim(),
+        ratePerDay: Number(metricRate),
+        divisor: Number(metricDivisor) || 1,
+      });
+      setMetricUnit("");
+      setMetricRate("");
+      setMetricDivisor("1");
+      setMetricErrors(false);
+    });
+  }
+
+  function addLink() {
+    if (linkInvalid) {
+      setLinkErrors(true);
+      return;
+    }
+    run(async () => {
+      await api.createDriveLink(task.id, linkUrl.trim());
+      setLinkUrl("");
+      setLinkErrors(false);
+    });
   }
 
   return (
@@ -75,27 +136,47 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
           ))}
           {!(task.performanceMetrics ?? []).length && <li className="muted">Sin métricas.</li>}
         </ul>
-        <div className="task-extra-add">
-          <input placeholder="Unidad (m³, ml…)" value={metricUnit} onChange={(e) => setMetricUnit(e.target.value)} />
-          <input placeholder="Ritmo/día" inputMode="decimal" value={metricRate} onChange={(e) => setMetricRate(e.target.value)} />
-          <input placeholder="Divisor" inputMode="numeric" value={metricDivisor} onChange={(e) => setMetricDivisor(e.target.value)} />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() =>
-              run(async () => {
-                await api.createMetric(task.id, {
-                  unit: metricUnit.trim(),
-                  ratePerDay: Number(metricRate),
-                  divisor: Number(metricDivisor) || 1,
-                });
-                setMetricUnit("");
-                setMetricRate("");
-                setMetricDivisor("1");
-              })
-            }
-          >
-            Añadir
+        <div className="form">
+          <ValidatedField
+            label="Unidad"
+            example="m³, ml, kg"
+            rules={unitRules}
+            value={metricUnit}
+            onChange={setMetricUnit}
+            showErrors={metricErrors}
+            placement="top"
+          />
+          <div className="form-grid">
+            <ValidatedField
+              label="Ritmo por día"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              example="120"
+              rules={rateRules}
+              value={metricRate}
+              onChange={setMetricRate}
+              showErrors={metricErrors}
+              placement="top"
+            />
+            <ValidatedField
+              label="Divisor"
+              type="number"
+              inputMode="numeric"
+              min="1"
+              step="1"
+              example="1"
+              rules={divisorRules}
+              value={metricDivisor}
+              onChange={setMetricDivisor}
+              showErrors={metricErrors}
+              placement="top"
+              align="right"
+            />
+          </div>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={addMetric}>
+            <Icon name="plus" size={14} />
+            Añadir métrica
           </button>
         </div>
       </div>
@@ -115,19 +196,20 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
           ))}
           {!(task.driveLinks ?? []).length && <li className="muted">Sin enlaces.</li>}
         </ul>
-        <div className="task-extra-add">
-          <input placeholder="https://drive.google.com/…" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() =>
-              run(async () => {
-                await api.createDriveLink(task.id, linkUrl.trim());
-                setLinkUrl("");
-              })
-            }
-          >
-            Añadir
+        <div className="form">
+          <ValidatedField
+            label="Dirección del enlace"
+            type="url"
+            example="https://drive.google.com/…"
+            rules={urlRules}
+            value={linkUrl}
+            onChange={setLinkUrl}
+            showErrors={linkErrors}
+            placement="top"
+          />
+          <button type="button" className="btn btn-secondary btn-sm" onClick={addLink}>
+            <Icon name="plus" size={14} />
+            Añadir enlace
           </button>
         </div>
       </div>
@@ -168,6 +250,7 @@ export function TaskFormModal({
   const invalid =
     fieldError(values.name, textRules) !== null ||
     fieldError(values.ownerName, textRules) !== null ||
+    fieldError(values.dependency, optionalTextRules) !== null ||
     !values.startDate ||
     !values.endDate ||
     !validDate(values.startDate) ||
@@ -247,6 +330,7 @@ export function TaskFormModal({
         />
         <SelectOrCreate
           label="Área técnica"
+          example="Obra civil, Estructura, Instalaciones"
           options={technicalAreas.map((area) => ({ id: area.id, label: area.name }))}
           value={values.technicalAreaId}
           onChange={(id) => set("technicalAreaId", id)}
@@ -256,12 +340,19 @@ export function TaskFormModal({
           }}
           placeholderOption="Selecciona un área"
           newPlaceholder="Nombre del área (Obra civil…)"
+          required
+          showErrors={showErrors}
         />
         <div className="form-grid">
-          <label className="form-row">
-            <span>Depende de (opcional)</span>
-            <input value={values.dependency} onChange={(e) => set("dependency", e.target.value)} />
-          </label>
+          <ValidatedField
+            label="Depende de (opcional)"
+            example="Movimiento de tierras"
+            rules={optionalTextRules}
+            value={values.dependency}
+            onChange={(v) => set("dependency", v)}
+            showErrors={showErrors}
+            placement="top"
+          />
           <label className="checkbox-row">
             <input
               type="checkbox"
@@ -272,7 +363,7 @@ export function TaskFormModal({
           </label>
         </div>
 
-        {showErrors && invalid && <p className="form-error">Revisa los campos obligatorios.</p>}
+        {showErrors && invalid && <p className="form-error">Revisa los campos marcados en rojo.</p>}
         {error && <p className="form-error">{error}</p>}
 
         <button type="submit" className="btn btn-primary btn-block" disabled={saving}>

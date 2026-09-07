@@ -35,7 +35,7 @@ export function ValidatedField({
   rules: Rule[];
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "number" | "date";
+  type?: "text" | "number" | "date" | "url";
   inputMode?: "numeric" | "decimal";
   min?: string;
   step?: string;
