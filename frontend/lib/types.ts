@@ -21,6 +21,37 @@ export type Task = {
   driveLinks: number;
 };
 
+export type PerformanceMetric = {
+  id: string;
+  unit: string;
+  ratePerDay: number;
+  divisor: number;
+};
+
+export type DriveLink = {
+  id: string;
+  url: string;
+};
+
+/** Tarea con sus relaciones, tal como llega del backend (para la edición). */
+export type TaskDetail = {
+  id: string;
+  name: string;
+  ownerName: string;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  isPhase: boolean;
+  dependency: string;
+  technicalAreaId: string;
+  technicalArea?: { id: string; name: string } | null;
+  performanceMetrics?: PerformanceMetric[];
+  driveLinks?: DriveLink[];
+};
+
+export type TechnicalArea = { id: string; name: string };
+export type TeamStatusOption = { id: string; type: string };
+
 export type Milestone = {
   id: string;
   description: string;
@@ -55,16 +86,26 @@ export type ActiveView = "dashboard" | "projects" | "overview" | "gantt";
 export type Notification = {
   id: number;
   message: string;
-  time: string;
+  /** epoch ms; el texto relativo ("hace 5 min") se calcula al renderizar */
+  createdAt: number;
 };
 
 export type ProjectFormValues = {
   name: string;
   startDate: string;
   endDate: string;
-  durationMonths: string;
   ownerName: string;
   budget: string;
+};
+
+export type TaskFormValues = {
+  name: string;
+  ownerName: string;
+  startDate: string;
+  endDate: string;
+  technicalAreaId: string;
+  isPhase: boolean;
+  dependency: string;
 };
 
 export type ShareRole = "viewer" | "editor";

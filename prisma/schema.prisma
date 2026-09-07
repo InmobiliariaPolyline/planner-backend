@@ -16,13 +16,17 @@ model Project {
   startDate      DateTime
   endDate        DateTime
   budget         Float
+  /// Se calcula del rango de fechas (no es entrada del usuario)
   durationMonths Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  progress   Int
-  dependency String
-  isPhase    Boolean
+  /// Se calcula como el promedio del progreso de las tareas (0 si no hay)
+  progress Int
+  /// Campos heredados sin uso a nivel de proyecto; el backend siempre escribe
+  /// '' y false. Se conservan para no acoplar el deploy a una migración.
+  dependency String  @default("")
+  isPhase    Boolean @default(false)
   ownerName  String
 
   // Relaciones

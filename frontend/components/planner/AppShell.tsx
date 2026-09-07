@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/Primitives";
+import { relativeTime } from "@/lib/format";
 import type { ActiveView, Notification, Project } from "@/lib/types";
 import type { Theme } from "@/hooks/useTheme";
 import { UserMenu } from "./UserMenu";
@@ -61,7 +62,7 @@ function NotificationsMenu({
                   <span className="notif-mark" aria-hidden="true" />
                   <div>
                     <p>{item.message}</p>
-                    <span>{item.time}</span>
+                    <span>{relativeTime(item.createdAt)}</span>
                   </div>
                 </li>
               ))}

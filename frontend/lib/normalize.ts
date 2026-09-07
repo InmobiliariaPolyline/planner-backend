@@ -1,5 +1,26 @@
-import type { RawTask, Task } from "./types";
-import { shortDate, toISO } from "./format";
+import type { DriveLink, PerformanceMetric, RawTask, Task, TaskDetail } from "./types";
+import { isoDay, shortDate, toISO } from "./format";
+
+/** Convierte la tarea cruda del backend a la forma que usan los formularios. */
+export function toTaskDetail(raw: RawTask): TaskDetail {
+  const area = raw.technicalArea as { id?: string; name?: string } | null | undefined;
+  return {
+    id: String(raw.id ?? ""),
+    name: String(raw.name ?? ""),
+    ownerName: String(raw.ownerName ?? ""),
+    startDate: isoDay(toISO(raw.startDate)),
+    endDate: isoDay(toISO(raw.endDate)),
+    progress: Number(raw.progress ?? 0),
+    isPhase: Boolean(raw.isPhase),
+    dependency: String(raw.dependency ?? ""),
+    technicalAreaId: String(raw.technicalAreaId ?? area?.id ?? ""),
+    technicalArea: area?.id ? { id: area.id, name: area.name ?? "" } : null,
+    performanceMetrics: Array.isArray(raw.performanceMetrics)
+      ? (raw.performanceMetrics as PerformanceMetric[])
+      : [],
+    driveLinks: Array.isArray(raw.driveLinks) ? (raw.driveLinks as DriveLink[]) : [],
+  };
+}
 
 export function normalizeTasks(tasks: RawTask[] = []): Task[] {
   return tasks.map((task, index) => {

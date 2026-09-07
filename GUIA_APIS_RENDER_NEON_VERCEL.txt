@@ -1,36 +1,27 @@
-GUIA EXACTA DE CONEXION: VERCEL + RENDER + NEON SQL
-====================================================
+GUIA DE CONEXION: VERCEL + RENDER + NEON SQL
+===========================================
 
-Fecha de revision: 2026-08-27
+Fecha de revision: 2026-09-07
 Proyecto: Project Planner
 
-VALORES REALES ENCONTRADOS EN ESTE PROYECTO
---------------------------------------------
+VARIABLES DE ENTORNO
+--------------------
 
-El archivo local .env contiene una DATABASE_URL real de Neon con estos datos:
+Render (backend) — configurar como secretos, NO commitear:
 
-  Protocolo: postgresql
-  Usuario: neondb_owner
-  Host: ep-polished-dream-ax05mzle-pooler.c-4.us-east-2.aws.neon.tech
-  Base de datos: neondb
-  Parametros: sslmode=require&channel_binding=require
+  DATABASE_URL      cadena de conexion pooled de Neon (con sslmode=require).
+                    La contrasena solo vive aqui y en el .env local; si se
+                    filtro, regenerala en Neon.
+  FRONTEND_ORIGIN   https://plannerbackend.vercel.app,http://localhost:3000
+                    (sin barra final, separados por coma)
 
-La contrasena no se copia en esta guia. Debes usar la que ya esta guardada en
-.env y pegarla como secreto en Render. Si esa contrasena fue compartida fuera
-de tu equipo, regenerala en Neon antes de desplegar.
+Vercel (frontend):
 
-Valores reales confirmados para este proyecto:
+  NEXT_PUBLIC_API_URL   https://planner-backend-deig.onrender.com  (sin barra final)
 
-  NEXT_PUBLIC_API_URL=https://planner-backend-deig.onrender.com
-  FRONTEND_ORIGIN=https://plannerbackend.vercel.app,http://localhost:3000
-  NEXT_PUBLIC_NEON_AUTH_URL=https://ep-polished-dream-ax05mzle.neonauth.c-4.us-east-2.aws.neon.tech/neondb/auth
-  NEXT_PUBLIC_NEON_DATA_API_URL=https://ep-polished-dream-ax05mzle.apirest.c-4.us-east-2.aws.neon.tech/neondb/rest/v1
-  NEON_DATA_API_URL=https://ep-polished-dream-ax05mzle.apirest.c-4.us-east-2.aws.neon.tech/neondb/rest/v1
-
-Usa exactamente esos valores, sin barra final en FRONTEND_ORIGIN.
-Las variables NEXT_PUBLIC_NEON_AUTH_URL y NEXT_PUBLIC_NEON_DATA_API_URL son las
-que usa el cliente Neon del frontend. NEON_DATA_API_URL se conserva como alias
-de referencia para Render, pero no debe reemplazar DATABASE_URL.
+Ya NO se usan (se puede limpiar el .env):
+  NEXT_PUBLIC_NEON_AUTH_URL, NEXT_PUBLIC_NEON_DATA_API_URL, NEON_DATA_API_URL
+  — eran del cliente @neondatabase/neon-js que se eliminó del frontend.
 
 1. ARQUITECTURA CORRECTA
 -------------------------
@@ -79,8 +70,12 @@ Directorio raiz:
 - No usar frontend como directorio raiz del backend.
 
 Runtime: Node
-Build Command:
-  npm install && npm run build
+Build Command (recomendado — aplica migraciones pendientes en el deploy):
+  npm install && npm run render-build
+
+  (render-build = prisma generate + prisma migrate deploy + tsc + copiar cliente)
+  Si prefieres controlar las migraciones a mano, usa: npm install && npm run build
+  y ejecuta `npx prisma migrate deploy` tú mismo antes de cada cambio de schema.
 
 Start Command:
   npm start

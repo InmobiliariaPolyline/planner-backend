@@ -9,8 +9,10 @@ export function toISO(value: unknown): string {
 
 export function shortDate(iso: string): string {
   if (!iso) return "—";
+  // timeZone UTC: las fechas se guardan a medianoche UTC; sin esto un usuario en
+  // UTC- vería el día anterior.
   return new Date(iso)
-    .toLocaleDateString("es-MX", { day: "2-digit", month: "short" })
+    .toLocaleDateString("es-MX", { day: "2-digit", month: "short", timeZone: "UTC" })
     .replace(".", "");
 }
 
@@ -60,10 +62,22 @@ export function timelineColumns(rangeStart: number, rangeEnd: number, count = 4)
   return Array.from({ length: count }, (_, index) => {
     const time = rangeStart + ((rangeEnd - rangeStart) * index) / (count - 1);
     return new Date(time)
-      .toLocaleDateString("es-MX", { day: "2-digit", month: "short" })
+      .toLocaleDateString("es-MX", { day: "2-digit", month: "short", timeZone: "UTC" })
       .replace(".", "")
       .toUpperCase();
   });
+}
+
+/** Tiempo relativo corto en español: "Ahora", "hace 5 min", "hace 2 h", "hace 3 d". */
+export function relativeTime(from: number, now = Date.now()): string {
+  const seconds = Math.max(0, Math.round((now - from) / 1000));
+  if (seconds < 45) return "Ahora";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  return `hace ${days} d`;
 }
 
 export function fallbackRange(): [number, number] {

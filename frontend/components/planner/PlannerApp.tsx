@@ -3,19 +3,45 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/hooks/useTheme";
-import { api } from "@/lib/api";
-import { normalizeTasks } from "@/lib/normalize";
-import type { ActiveView, GanttMode, Project, ProjectFormValues, RawTask, Task } from "@/lib/types";
+import { api, onServerWaking } from "@/lib/api";
+import { normalizeTasks, toTaskDetail } from "@/lib/normalize";
+import type {
+  ActiveView,
+  GanttMode,
+  Milestone,
+  Project,
+  ProjectFormValues,
+  RawTask,
+  Task,
+  TaskDetail,
+  TaskFormValues,
+  TeamStatusOption,
+  TechnicalArea,
+} from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AppShell } from "./AppShell";
 import { DashboardView } from "./DashboardView";
 import { GanttChart } from "./GanttChart";
+import { MemberFormModal } from "./MemberFormModal";
+import { MilestoneFormModal } from "./MilestoneFormModal";
 import { ProjectDetailView } from "./ProjectDetailView";
 import { ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
 import { ShareManager } from "./ShareManager";
+import { TaskFormModal } from "./TaskFormModal";
 
-type ModalState = null | "create" | "edit" | "share";
+type Modal =
+  | null
+  | { kind: "projectCreate" }
+  | { kind: "projectEdit" }
+  | { kind: "share" }
+  | { kind: "taskCreate" }
+  | { kind: "taskEdit"; task: TaskDetail }
+  | { kind: "member" }
+  | { kind: "milestoneCreate" }
+  | { kind: "milestoneEdit"; milestone: Milestone }
+  | { kind: "confirm"; title: string; message: string; confirmLabel: string; onConfirm: () => Promise<void> };
 
 export function PlannerApp() {
   const { theme, toggleTheme } = useTheme();
@@ -30,12 +56,20 @@ export function PlannerApp() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [ganttMode, setGanttMode] = useState<GanttMode>("month");
   const [apiMessage, setApiMessage] = useState("");
-  const [modal, setModal] = useState<ModalState>(null);
+  const [serverWaking, setServerWaking] = useState(false);
+  const [modal, setModal] = useState<Modal>(null);
+
+  const [technicalAreas, setTechnicalAreas] = useState<TechnicalArea[]>([]);
+  const [teamStatuses, setTeamStatuses] = useState<TeamStatusOption[]>([]);
 
   useEffect(() => {
-    // Un poco más que la animación de la barra de carga (1.4 s) para que llegue a 100 %.
     const timer = window.setTimeout(() => setIsBooting(false), 1600);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    onServerWaking(() => setServerWaking(true));
+    return () => onServerWaking(null);
   }, []);
 
   useEffect(() => {
@@ -45,48 +79,70 @@ export function PlannerApp() {
       .then((data) => {
         setProjects(data);
         setApiMessage("");
-        if (data.length) {
-          const plural = data.length === 1 ? "" : "s";
-          notify(`${data.length} expediente${plural} cargado${plural} desde Neon.`);
-        }
+        setServerWaking(false);
       })
       .catch(() => {
         setProjects([]);
-        setApiMessage("API no disponible. No se cargaron proyectos locales.");
-        notify("No fue posible conectar con la API de Render.");
+        setApiMessage("API no disponible. Revisa tu conexión o inténtalo de nuevo en un momento.");
+        setServerWaking(false);
       });
-  }, [authenticated, notify]);
+    api.listTechnicalAreas().then(setTechnicalAreas).catch(() => undefined);
+    api.listTeamStatuses().then(setTeamStatuses).catch(() => undefined);
+  }, [authenticated]);
 
-  const patchProjectInState = useCallback((updated: Project) => {
+  const setProjectEverywhere = useCallback((updated: Project) => {
     setProjects((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     setSelectedProject((current) => (current && current.id === updated.id ? updated : current));
+    setTasks((current) => {
+      const isSelected = updated.tasks !== undefined;
+      return isSelected ? normalizeTasks((updated.tasks ?? []) as RawTask[]) : current;
+    });
   }, []);
+
+  const refreshProject = useCallback(
+    async (projectId: string) => {
+      try {
+        const fresh = await api.getProject(projectId);
+        setProjectEverywhere(fresh);
+      } catch {
+        /* si falla, se conserva el estado actual */
+      }
+    },
+    [setProjectEverywhere],
+  );
 
   const selectProject = useCallback((project: Project) => {
     setSelectedProject(project);
     setTasks(normalizeTasks((project.tasks ?? []) as RawTask[]));
     setActiveView("overview");
+    void api.getProject(project.id).then((fresh) => {
+      setSelectedProject(fresh);
+      setTasks(normalizeTasks((fresh.tasks ?? []) as RawTask[]));
+    });
   }, []);
 
   const navigate = useCallback((view: ActiveView) => setActiveView(view), []);
+  const closeModal = useCallback(() => setModal(null), []);
 
+  // ── Catálogos ────────────────────────────────────────────────────────────
+  async function createTechnicalArea(name: string) {
+    const area = await api.createTechnicalArea(name);
+    setTechnicalAreas((current) => [...current, area].sort((a, b) => a.name.localeCompare(b.name)));
+    return area;
+  }
+  async function createTeamStatus(type: string) {
+    const status = await api.createTeamStatus(type);
+    setTeamStatuses((current) => [...current, status].sort((a, b) => a.type.localeCompare(b.type)));
+    return status;
+  }
+
+  // ── Proyectos ────────────────────────────────────────────────────────────
   async function createProject(values: ProjectFormValues) {
-    if (
-      !values.name.trim() ||
-      !values.startDate ||
-      !values.endDate ||
-      !values.durationMonths ||
-      !values.ownerName.trim() ||
-      !values.budget
-    ) {
-      throw new Error("Completa todos los campos del expediente");
-    }
     const project = await api.createProject({
       name: values.name.trim(),
       startDate: values.startDate,
       endDate: values.endDate,
       budget: Number(values.budget),
-      durationMonths: Number(values.durationMonths),
       ownerName: values.ownerName.trim(),
     });
     setProjects((current) => [project, ...current]);
@@ -103,135 +159,136 @@ export function PlannerApp() {
       startDate: values.startDate,
       endDate: values.endDate,
       budget: Number(values.budget),
-      durationMonths: Number(values.durationMonths),
       ownerName: values.ownerName.trim(),
     });
-    patchProjectInState(project);
-    setSelectedProject(project);
+    setProjectEverywhere(project);
     setModal(null);
     setApiMessage("Expediente actualizado correctamente.");
     notify(`Expediente actualizado: ${project.name}.`);
   }
 
-  async function deleteProject(project: Project) {
-    if (!window.confirm(`¿Eliminar el expediente "${project.name}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
-    try {
-      await api.deleteProject(project.id);
-      setProjects((current) => current.filter((item) => item.id !== project.id));
-      if (selectedProject?.id === project.id) {
-        setSelectedProject(null);
-        setActiveView("projects");
-      }
-      setApiMessage("Expediente eliminado correctamente.");
-      notify(`Expediente eliminado: ${project.name}.`);
-    } catch (error) {
-      setApiMessage(error instanceof Error ? error.message : "No fue posible eliminar el expediente");
-    }
+  function askDeleteProject(project: Project) {
+    setModal({
+      kind: "confirm",
+      title: "Eliminar expediente",
+      message: `Se eliminará "${project.name}" y todo su contenido (tareas, hitos, equipo, enlaces). No se puede deshacer.`,
+      confirmLabel: "Eliminar expediente",
+      onConfirm: async () => {
+        await api.deleteProject(project.id);
+        setProjects((current) => current.filter((item) => item.id !== project.id));
+        if (selectedProject?.id === project.id) {
+          setSelectedProject(null);
+          setActiveView("projects");
+        }
+        setApiMessage("Expediente eliminado correctamente.");
+        notify(`Expediente eliminado: ${project.name}.`);
+      },
+    });
   }
 
-  async function addMember() {
+  // ── Participantes ────────────────────────────────────────────────────────
+  async function addMember(data: { name: string; teamStatusId: string }) {
     if (!selectedProject) return;
-    const name = window.prompt("Nombre del participante");
-    if (!name?.trim()) return;
-    try {
-      const statuses = await api.listTeamStatuses();
-      if (!statuses.length) {
-        throw new Error("Configura al menos un estado de equipo antes de añadir participantes.");
-      }
-      const member = await api.createTeamMember(selectedProject.id, {
-        name: name.trim(),
-        teamStatusId: statuses[0].id,
-      });
-      const updated: Project = {
-        ...selectedProject,
-        teamMembers: [...(selectedProject.teamMembers ?? []), member],
-      };
-      patchProjectInState(updated);
-      setApiMessage("Participante añadido correctamente.");
-      notify(`Participante añadido a ${selectedProject.name}.`);
-    } catch (error) {
-      setApiMessage(error instanceof Error ? error.message : "No fue posible añadir al participante");
-    }
+    await api.createTeamMember(selectedProject.id, data);
+    await refreshProject(selectedProject.id);
+    setModal(null);
+    notify(`Participante añadido a ${selectedProject.name}.`);
   }
-
-  async function addMilestone() {
+  function askDeleteMember(id: string, name: string) {
     if (!selectedProject) return;
-    const description = window.prompt("Descripción del hito");
-    const date = window.prompt("Fecha del hito (AAAA-MM-DD)");
-    if (!description?.trim() || !date) return;
-    try {
-      const milestone = await api.createMilestone(selectedProject.id, {
-        description: description.trim(),
-        date,
-      });
-      const updated: Project = {
-        ...selectedProject,
-        milestones: [...(selectedProject.milestones ?? []), milestone],
-      };
-      patchProjectInState(updated);
-      setApiMessage("Hito añadido correctamente.");
-      notify(`Hito añadido a ${selectedProject.name}.`);
-    } catch (error) {
-      setApiMessage(error instanceof Error ? error.message : "No fue posible añadir el hito");
-    }
+    const projectId = selectedProject.id;
+    setModal({
+      kind: "confirm",
+      title: "Eliminar participante",
+      message: `Quitar a "${name}" del equipo del proyecto.`,
+      confirmLabel: "Eliminar",
+      onConfirm: async () => {
+        await api.deleteTeamMember(id);
+        await refreshProject(projectId);
+      },
+    });
   }
 
-  async function createTask() {
+  // ── Hitos ────────────────────────────────────────────────────────────────
+  async function saveMilestone(data: { description: string; date: string }, milestone?: Milestone) {
     if (!selectedProject) return;
-    const name = window.prompt("Nombre de la tarea");
-    const startDate = window.prompt("Fecha de inicio (AAAA-MM-DD)");
-    const endDate = window.prompt("Fecha de término (AAAA-MM-DD)");
-    const ownerName = window.prompt("Responsable");
-    if (!name?.trim() || !startDate || !endDate || !ownerName?.trim()) return;
-    try {
-      const areas = await api.listTechnicalAreas();
-      if (!areas.length) {
-        throw new Error("Configura un área técnica antes de crear tareas.");
-      }
-      const task = await api.createTask(selectedProject.id, {
-        name: name.trim(),
-        startDate,
-        endDate,
-        ownerName: ownerName.trim(),
-        technicalAreaId: areas[0].id,
-        progress: 0,
-        dependency: "",
-        isPhase: false,
-      });
-      const rawTasks = [...((selectedProject.tasks ?? []) as RawTask[]), task];
-      setTasks(normalizeTasks(rawTasks));
-      const updated: Project = { ...selectedProject, tasks: rawTasks };
-      patchProjectInState(updated);
-      setApiMessage("Tarea creada correctamente.");
-      notify(`Tarea creada: ${name.trim()}.`);
-    } catch (error) {
-      setApiMessage(error instanceof Error ? error.message : "No fue posible crear la tarea");
-    }
+    if (milestone) await api.updateMilestone(milestone.id, data);
+    else await api.createMilestone(selectedProject.id, data);
+    await refreshProject(selectedProject.id);
+    setModal(null);
+    notify(milestone ? "Hito actualizado." : `Hito añadido a ${selectedProject.name}.`);
+  }
+  function askDeleteMilestone(milestone: Milestone) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    setModal({
+      kind: "confirm",
+      title: "Eliminar hito",
+      message: `Eliminar el hito "${milestone.description}".`,
+      confirmLabel: "Eliminar",
+      onConfirm: async () => {
+        await api.deleteMilestone(milestone.id);
+        await refreshProject(projectId);
+      },
+    });
   }
 
-  async function updateProgress(id: string, progress: number) {
+  // ── Tareas ───────────────────────────────────────────────────────────────
+  async function saveTask(values: TaskFormValues, existing?: TaskDetail) {
+    if (!selectedProject) return;
+    const payload = {
+      name: values.name.trim(),
+      ownerName: values.ownerName.trim(),
+      startDate: values.startDate,
+      endDate: values.endDate,
+      technicalAreaId: values.technicalAreaId,
+      isPhase: values.isPhase,
+      dependency: values.dependency.trim(),
+    };
+    if (existing) await api.updateTask(existing.id, payload);
+    else await api.createTask(selectedProject.id, { ...payload, progress: 0 });
+    await refreshProject(selectedProject.id);
+    setModal(null);
+    notify(existing ? "Tarea actualizada." : `Tarea creada: ${payload.name}.`);
+  }
+  function askDeleteTask(task: Task) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    setModal({
+      kind: "confirm",
+      title: "Eliminar tarea",
+      message: `Eliminar la tarea "${task.name}" del cronograma.`,
+      confirmLabel: "Eliminar",
+      onConfirm: async () => {
+        await api.deleteTask(task.id);
+        await refreshProject(projectId);
+      },
+    });
+  }
+  function openTaskEdit(taskId: string) {
+    const raw = (selectedProject?.tasks ?? []).find((t) => String((t as RawTask).id) === taskId);
+    if (raw) setModal({ kind: "taskEdit", task: toTaskDetail(raw as RawTask) });
+  }
+
+  async function commitProgress(id: string, progress: number) {
     const previous = tasks.find((task) => task.id === id)?.progress ?? 0;
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress } : task)));
     try {
       await api.updateTaskProgress(id, progress);
-      notify(`Progreso actualizado a ${progress}%.`);
+      if (selectedProject) void refreshProject(selectedProject.id);
     } catch (error) {
-      setTasks((current) =>
-        current.map((task) => (task.id === id ? { ...task, progress: previous } : task)),
-      );
+      setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress: previous } : task)));
       setApiMessage(error instanceof Error ? error.message : "No fue posible guardar el progreso");
     }
   }
 
   if (isBooting) return <LoadingScreen />;
-
   if (!authenticated) {
     return <LoginScreen projectCount={projects.length} onEnter={() => setAuthenticated(true)} />;
   }
 
   const detailTab: "overview" | "gantt" = activeView === "gantt" ? "gantt" : "overview";
+  const banner = serverWaking ? "Conectando con el servidor… (puede tardar si estaba inactivo)" : apiMessage;
 
   return (
     <>
@@ -250,7 +307,7 @@ export function PlannerApp() {
             projects={projects}
             onCreate={() => {
               setActiveView("projects");
-              setModal("create");
+              setModal({ kind: "projectCreate" });
             }}
             onOpenProjects={() => setActiveView("projects")}
             onSelect={selectProject}
@@ -260,10 +317,10 @@ export function PlannerApp() {
         {activeView === "projects" && (
           <ProjectsView
             projects={projects}
-            apiMessage={apiMessage}
-            onCreate={() => setModal("create")}
+            apiMessage={banner}
+            onCreate={() => setModal({ kind: "projectCreate" })}
             onSelect={selectProject}
-            onDelete={(project) => void deleteProject(project)}
+            onDelete={askDeleteProject}
           />
         )}
 
@@ -272,21 +329,26 @@ export function PlannerApp() {
             project={selectedProject}
             taskCount={selectedProject.tasks?.length ?? 0}
             activeTab={detailTab}
-            banner={apiMessage}
+            banner={banner}
             onTab={(tab) => setActiveView(tab)}
             onBack={() => setActiveView("projects")}
-            onEdit={() => setModal("edit")}
-            onDelete={() => void deleteProject(selectedProject)}
-            onShare={() => setModal("share")}
-            onAddMember={() => void addMember()}
-            onAddMilestone={() => void addMilestone()}
+            onEdit={() => setModal({ kind: "projectEdit" })}
+            onDelete={() => askDeleteProject(selectedProject)}
+            onShare={() => setModal({ kind: "share" })}
+            onAddMember={() => setModal({ kind: "member" })}
+            onDeleteMember={askDeleteMember}
+            onAddMilestone={() => setModal({ kind: "milestoneCreate" })}
+            onEditMilestone={(milestone) => setModal({ kind: "milestoneEdit", milestone })}
+            onDeleteMilestone={askDeleteMilestone}
             gantt={
               <GanttChart
                 tasks={tasks}
                 mode={ganttMode}
                 onToggleMode={() => setGanttMode((mode) => (mode === "month" ? "week" : "month"))}
-                onCreateTask={() => void createTask()}
-                onUpdateProgress={updateProgress}
+                onCreateTask={() => setModal({ kind: "taskCreate" })}
+                onEditTask={openTaskEdit}
+                onDeleteTask={askDeleteTask}
+                onCommitProgress={commitProgress}
               />
             }
           />
@@ -299,26 +361,65 @@ export function PlannerApp() {
         )}
       </AppShell>
 
-      {modal === "create" && (
-        <ProjectFormModal
-          mode="create"
-          onClose={() => setModal(null)}
-          onSubmit={createProject}
-        />
+      {modal?.kind === "projectCreate" && (
+        <ProjectFormModal mode="create" onClose={closeModal} onSubmit={createProject} />
       )}
-      {modal === "edit" && selectedProject && (
+      {modal?.kind === "projectEdit" && selectedProject && (
         <ProjectFormModal
           mode="edit"
           initialValues={projectToForm(selectedProject)}
-          onClose={() => setModal(null)}
+          onClose={closeModal}
           onSubmit={updateProject}
         />
       )}
-      {modal === "share" && selectedProject && (
-        <ShareManager
-          projectId={selectedProject.id}
-          projectName={selectedProject.name}
-          onClose={() => setModal(null)}
+      {modal?.kind === "share" && selectedProject && (
+        <ShareManager projectId={selectedProject.id} projectName={selectedProject.name} onClose={closeModal} />
+      )}
+      {modal?.kind === "taskCreate" && selectedProject && (
+        <TaskFormModal
+          mode="create"
+          technicalAreas={technicalAreas}
+          onCreateArea={createTechnicalArea}
+          onSubmit={(values) => saveTask(values)}
+          onClose={closeModal}
+        />
+      )}
+      {modal?.kind === "taskEdit" && selectedProject && (
+        <TaskFormModal
+          mode="edit"
+          initialTask={modal.task}
+          technicalAreas={technicalAreas}
+          onCreateArea={createTechnicalArea}
+          onSubmit={(values) => saveTask(values, modal.task)}
+          onExtrasChanged={() => void refreshProject(selectedProject.id)}
+          onClose={closeModal}
+        />
+      )}
+      {modal?.kind === "member" && selectedProject && (
+        <MemberFormModal
+          statuses={teamStatuses}
+          onCreateStatus={createTeamStatus}
+          onSubmit={addMember}
+          onClose={closeModal}
+        />
+      )}
+      {modal?.kind === "milestoneCreate" && selectedProject && (
+        <MilestoneFormModal onSubmit={(data) => saveMilestone(data)} onClose={closeModal} />
+      )}
+      {modal?.kind === "milestoneEdit" && selectedProject && (
+        <MilestoneFormModal
+          milestone={modal.milestone}
+          onSubmit={(data) => saveMilestone(data, modal.milestone)}
+          onClose={closeModal}
+        />
+      )}
+      {modal?.kind === "confirm" && (
+        <ConfirmDialog
+          title={modal.title}
+          message={modal.message}
+          confirmLabel={modal.confirmLabel}
+          onConfirm={modal.onConfirm}
+          onClose={closeModal}
         />
       )}
     </>

@@ -23,6 +23,11 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   rollback de progreso; se elimina `lib/neon.ts`; se baja TypeScript 7 -> 5.9.
 - `005-responsive-sidebar.md`: la barra lateral ya no se desordena en anchos
   intermedios (~700-1080 px); colapsa a solo iconos y no desborda.
+- `006-correcciones-generales.md`: lote grande — progreso/duración del proyecto
+  derivados, validación de fechas en el backend, fin de los window.prompt
+  (modales reales), editar/eliminar tareas/participantes/hitos, métricas y
+  Drive con UI, debounce del slider, reintentos ante arranque en frío, CI,
+  pruebas unitarias.
 
 ## Cambios mayores (no son parches)
 

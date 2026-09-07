@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, Badge, EmptyState, StatCard } from "@/components/ui/Primitives";
 import { currency, dateRange, isoDay } from "@/lib/format";
-import type { Project } from "@/lib/types";
+import type { Milestone, Project } from "@/lib/types";
 
 export function ProjectDetailView({
   project,
@@ -17,7 +17,10 @@ export function ProjectDetailView({
   onDelete,
   onShare,
   onAddMember,
+  onDeleteMember,
   onAddMilestone,
+  onEditMilestone,
+  onDeleteMilestone,
   gantt,
 }: {
   project: Project;
@@ -30,7 +33,10 @@ export function ProjectDetailView({
   onDelete: () => void;
   onShare: () => void;
   onAddMember: () => void;
+  onDeleteMember: (id: string, name: string) => void;
   onAddMilestone: () => void;
+  onEditMilestone: (milestone: Milestone) => void;
+  onDeleteMilestone: (milestone: Milestone) => void;
   gantt: ReactNode;
 }) {
   const completed = project.progress === 100;
@@ -141,6 +147,14 @@ export function ProjectDetailView({
                         <span>Participante del proyecto</span>
                       </div>
                       <Badge tone="success">{member.teamStatus.type}</Badge>
+                      <button
+                        type="button"
+                        className="row-remove"
+                        onClick={() => onDeleteMember(member.id, member.name)}
+                        aria-label={`Quitar a ${member.name}`}
+                      >
+                        <Icon name="x" size={14} />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -173,6 +187,14 @@ export function ProjectDetailView({
                         <span>{isoDay(milestone.date)}</span>
                         <strong>{milestone.description}</strong>
                       </div>
+                      <span className="row-actions">
+                        <button type="button" onClick={() => onEditMilestone(milestone)} aria-label="Editar hito">
+                          <Icon name="dots" size={14} />
+                        </button>
+                        <button type="button" onClick={() => onDeleteMilestone(milestone)} aria-label="Eliminar hito">
+                          <Icon name="trash" size={14} />
+                        </button>
+                      </span>
                     </li>
                   ))}
                 </ul>

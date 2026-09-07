@@ -10,7 +10,6 @@ const EMPTY: ProjectFormValues = {
   name: "",
   startDate: "",
   endDate: "",
-  durationMonths: "",
   ownerName: "",
   budget: "",
 };
@@ -20,7 +19,6 @@ export function projectToForm(project: Project): ProjectFormValues {
     name: project.name,
     startDate: project.startDate.slice(0, 10),
     endDate: project.endDate.slice(0, 10),
-    durationMonths: String(project.durationMonths),
     ownerName: project.ownerName,
     budget: String(project.budget),
   };
@@ -31,7 +29,6 @@ const maxLen = (v: string) => v.trim().length <= 300;
 const noAngles = (v: string) => !/[<>]/.test(v);
 const validDate = (v: string) => v === "" || !Number.isNaN(Date.parse(v));
 const isNumber = (v: string) => v.trim() === "" || Number.isFinite(Number(v));
-const isInteger = (v: string) => v.trim() === "" || Number.isInteger(Number(v));
 
 function textRules(): Rule[] {
   return [
@@ -77,12 +74,6 @@ export function ProjectFormModal({
           label: "No puede ser anterior a la fecha de inicio",
           test: (v) => v === "" || values.startDate === "" || v >= values.startDate,
         },
-      ],
-      durationMonths: [
-        { label: "Obligatorio", test: notEmpty },
-        { label: "Solo números", test: isNumber },
-        { label: "Número entero", test: isInteger },
-        { label: "Mínimo 1 mes", test: (v) => v.trim() === "" || Number(v) >= 1 },
       ],
       budget: [
         { label: "Obligatorio", test: notEmpty },
@@ -155,29 +146,14 @@ export function ProjectFormModal({
             align="right"
           />
         </div>
-        <div className="form-grid">
-          <ValidatedField
-            label="Duración (meses)"
-            type="number"
-            inputMode="numeric"
-            min="1"
-            step="1"
-            example="9"
-            rules={rules.durationMonths}
-            value={values.durationMonths}
-            onChange={set("durationMonths")}
-            showErrors={showErrors}
-          />
-          <ValidatedField
-            label="Responsable"
-            example="María Fernanda Ruiz"
-            rules={rules.ownerName}
-            value={values.ownerName}
-            onChange={set("ownerName")}
-            showErrors={showErrors}
-            align="right"
-          />
-        </div>
+        <ValidatedField
+          label="Responsable"
+          example="María Fernanda Ruiz"
+          rules={rules.ownerName}
+          value={values.ownerName}
+          onChange={set("ownerName")}
+          showErrors={showErrors}
+        />
         <ValidatedField
           label="Presupuesto oficial"
           type="number"

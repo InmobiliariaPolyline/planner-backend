@@ -6,6 +6,9 @@ import rateLimit from 'express-rate-limit';
 import { prisma, pool, projectInclude } from './lib/prisma';
 import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAccessError } from './lib/share';
+import { assertDateOrder, monthsBetween, recomputeProjectProgress } from './lib/projectMath';
+
+const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
 
 const app = express();
 
@@ -25,7 +28,16 @@ app.use(cors({ origin: (origin, callback) => {
   // y la API no devuelve un 500 con stack.
   callback(null, false);
 } }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }));
+// Cupos de peticiones separados: la administración y los enlaces públicos no
+// comparten bucket, para que el tráfico de uno no bloquee al otro.
+app.use('/shared', rateLimit({ windowMs: 15 * 60 * 1000, limit: 600, standardHeaders: 'draft-8', legacyHeaders: false }));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/shared'),
+}));
 app.use(express.json({ limit: '10kb' }));
 
 // Ruta de prueba inicial
@@ -68,24 +80,24 @@ app.get('/projects/:id', async (req: Request, res: Response) => {
 
 app.post('/projects', async (req: Request, res: Response) => {
   try {
-    const { name, startDate, endDate, budget, durationMonths, ownerName } = req.body;
+    const { name, startDate, endDate, budget, ownerName } = req.body;
+    const start = requiredDate(startDate, 'startDate');
+    const end = requiredDate(endDate, 'endDate');
+    assertDateOrder(start, end);
     const project = await prisma.project.create({
       data: {
         name: cleanText(name, 'name')!,
-        startDate: requiredDate(startDate, 'startDate'),
-        endDate: requiredDate(endDate, 'endDate'),
+        startDate: start,
+        endDate: end,
         budget: requiredNumber(budget, 'budget'),
-        durationMonths: requiredNumber(durationMonths ?? 0, 'durationMonths'),
+        durationMonths: monthsBetween(start, end),
         progress: 0,
-        dependency: '',
-        isPhase: false,
         ownerName: cleanText(ownerName, 'ownerName')!
       },
       include: projectInclude
     });
     res.status(201).json(project);
   } catch (error) {
-    console.error(error);
     res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el proyecto' });
   }
 });
@@ -93,23 +105,30 @@ app.post('/projects', async (req: Request, res: Response) => {
 app.patch('/projects/:id', async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params.id);
-    const { name, startDate, endDate, budget, durationMonths, progress, dependency, isPhase, ownerName } = req.body;
+    const { name, startDate, endDate, budget, ownerName } = req.body;
+    const patch = await buildProjectDatePatch(projectId, startDate, endDate);
     const project = await prisma.project.update({ where: { id: projectId }, data: {
       ...(name !== undefined && { name: cleanText(name, 'name') }),
-      ...(startDate !== undefined && { startDate: requiredDate(startDate, 'startDate') }),
-      ...(endDate !== undefined && { endDate: requiredDate(endDate, 'endDate') }),
       ...(budget !== undefined && { budget: requiredNumber(budget, 'budget') }),
-      ...(durationMonths !== undefined && { durationMonths: requiredNumber(durationMonths, 'durationMonths') }),
-      ...(progress !== undefined && { progress: requiredNumber(progress, 'progress', 0, 100) }),
-      ...(dependency !== undefined && { dependency: cleanText(dependency, 'dependency', false) }),
-      ...(isPhase !== undefined && { isPhase: Boolean(isPhase) }),
-      ...(ownerName !== undefined && { ownerName: cleanText(ownerName, 'ownerName') })
+      ...(ownerName !== undefined && { ownerName: cleanText(ownerName, 'ownerName') }),
+      ...patch,
     }, include: projectInclude });
     res.json(project);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar el proyecto' });
   }
 });
+
+/** Resuelve el nuevo rango de fechas del proyecto, lo valida y recalcula la duración. */
+async function buildProjectDatePatch(projectId: string, startDate: unknown, endDate: unknown) {
+  if (startDate === undefined && endDate === undefined) return {};
+  const current = await prisma.project.findUnique({ where: { id: projectId }, select: { startDate: true, endDate: true } });
+  if (!current) throw new Error('Proyecto no encontrado');
+  const start = startDate !== undefined ? requiredDate(startDate, 'startDate') : current.startDate;
+  const end = endDate !== undefined ? requiredDate(endDate, 'endDate') : current.endDate;
+  assertDateOrder(start, end);
+  return { startDate: start, endDate: end, durationMonths: monthsBetween(start, end) };
+}
 
 app.delete('/projects/:id', async (req: Request, res: Response) => {
   try {
@@ -120,33 +139,93 @@ app.delete('/projects/:id', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/technical-areas', async (_req, res) => res.json(await prisma.technicalArea.findMany({ orderBy: { name: 'asc' } })));
+app.get('/technical-areas', async (_req, res) => {
+  try { res.json(await prisma.technicalArea.findMany({ orderBy: { name: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Error al obtener las áreas técnicas' }); }
+});
 app.post('/technical-areas', async (req, res) => {
   try { res.status(201).json(await prisma.technicalArea.create({ data: { name: cleanText(req.body.name, 'name')! } })); }
   catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el área técnica' }); }
 });
-app.get('/team-statuses', async (_req, res) => res.json(await prisma.teamStatus.findMany({ orderBy: { type: 'asc' } })));
+app.delete('/technical-areas/:id', async (req, res) => {
+  try {
+    const inUse = await prisma.task.count({ where: { technicalAreaId: String(req.params.id) } });
+    if (inUse > 0) { res.status(409).json({ error: `No se puede eliminar: hay ${inUse} tarea(s) usando esta área.` }); return; }
+    await prisma.technicalArea.delete({ where: { id: String(req.params.id) } });
+    res.status(204).send();
+  } catch { res.status(404).json({ error: 'Área técnica no encontrada' }); }
+});
+app.get('/team-statuses', async (_req, res) => {
+  try { res.json(await prisma.teamStatus.findMany({ orderBy: { type: 'asc' } })); }
+  catch { res.status(500).json({ error: 'Error al obtener los estados de equipo' }); }
+});
 app.post('/team-statuses', async (req, res) => {
   try { res.status(201).json(await prisma.teamStatus.create({ data: { type: cleanText(req.body.type, 'type')! } })); }
   catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el estado' }); }
 });
+app.delete('/team-statuses/:id', async (req, res) => {
+  try {
+    const inUse = await prisma.teamMember.count({ where: { teamStatusId: String(req.params.id) } });
+    if (inUse > 0) { res.status(409).json({ error: `No se puede eliminar: hay ${inUse} participante(s) con este estado.` }); return; }
+    await prisma.teamStatus.delete({ where: { id: String(req.params.id) } });
+    res.status(204).send();
+  } catch { res.status(404).json({ error: 'Estado de equipo no encontrado' }); }
+});
+
+async function createTaskForProject(projectId: string, body: Record<string, unknown>) {
+  const start = requiredDate(body.startDate, 'startDate');
+  const end = requiredDate(body.endDate, 'endDate');
+  assertDateOrder(start, end);
+  const task = await prisma.task.create({ data: {
+    name: cleanText(body.name, 'name')!, projectId,
+    startDate: start, endDate: end,
+    technicalAreaId: cleanText(body.technicalAreaId, 'technicalAreaId')!,
+    progress: requiredNumber(body.progress ?? 0, 'progress', 0, 100),
+    dependency: cleanText(body.dependency ?? '', 'dependency', false) ?? '',
+    isPhase: Boolean(body.isPhase), ownerName: cleanText(body.ownerName, 'ownerName')!,
+  }, include: taskInclude });
+  await recomputeProjectProgress(projectId);
+  return task;
+}
+
+async function patchTask(taskId: string, body: Record<string, unknown>) {
+  const existing = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true, startDate: true, endDate: true } });
+  if (!existing) throw new Error('Tarea no encontrada');
+  const start = body.startDate !== undefined ? requiredDate(body.startDate, 'startDate') : existing.startDate;
+  const end = body.endDate !== undefined ? requiredDate(body.endDate, 'endDate') : existing.endDate;
+  if (body.startDate !== undefined || body.endDate !== undefined) assertDateOrder(start, end);
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      ...(body.name !== undefined && { name: cleanText(body.name, 'name') }),
+      ...(body.startDate !== undefined && { startDate: start }),
+      ...(body.endDate !== undefined && { endDate: end }),
+      ...(body.progress !== undefined && { progress: requiredNumber(body.progress, 'progress', 0, 100) }),
+      ...(body.dependency !== undefined && { dependency: cleanText(body.dependency, 'dependency', false) ?? '' }),
+      ...(body.ownerName !== undefined && { ownerName: cleanText(body.ownerName, 'ownerName') }),
+      ...(body.isPhase !== undefined && { isPhase: Boolean(body.isPhase) }),
+      ...(body.technicalAreaId !== undefined && { technicalAreaId: cleanText(body.technicalAreaId, 'technicalAreaId') }),
+    },
+    include: taskInclude,
+  });
+  await recomputeProjectProgress(existing.projectId);
+  return task;
+}
 
 app.post('/projects/:projectId/tasks', async (req, res) => {
   try {
-    const { name, startDate, endDate, technicalAreaId, progress, dependency, isPhase, ownerName } = req.body;
-    const task = await prisma.task.create({ data: {
-      name: cleanText(name, 'name')!, projectId: String(req.params.projectId),
-      startDate: requiredDate(startDate, 'startDate'), endDate: requiredDate(endDate, 'endDate'),
-      technicalAreaId: cleanText(technicalAreaId, 'technicalAreaId')!, progress: requiredNumber(progress ?? 0, 'progress'),
-      dependency: cleanText(dependency ?? '', 'dependency', false) ?? '', isPhase: Boolean(isPhase), ownerName: cleanText(ownerName, 'ownerName')!,
-    }, include: { technicalArea: true, performanceMetrics: true, driveLinks: true } });
-    res.status(201).json(task);
+    res.status(201).json(await createTaskForProject(String(req.params.projectId), req.body));
   } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear la tarea' }); }
 });
 
 app.delete('/tasks/:id', async (req, res) => {
-  try { await prisma.task.delete({ where: { id: String(req.params.id) } }); res.status(204).send(); }
-  catch (_error) { res.status(404).json({ error: 'Tarea no encontrada' }); }
+  try {
+    const task = await prisma.task.findUnique({ where: { id: String(req.params.id) }, select: { projectId: true } });
+    if (!task) { res.status(404).json({ error: 'Tarea no encontrada' }); return; }
+    await prisma.task.delete({ where: { id: String(req.params.id) } });
+    await recomputeProjectProgress(task.projectId);
+    res.status(204).send();
+  } catch (_error) { res.status(404).json({ error: 'Tarea no encontrada' }); }
 });
 
 app.post('/projects/:projectId/team-members', async (req, res) => {
@@ -188,23 +267,7 @@ app.delete('/milestones/:id', async (req, res) => {
 
 app.patch('/tasks/:id', async (req: Request, res: Response) => {
   try {
-    const { name, startDate, endDate, progress, dependency, ownerName, isPhase, technicalAreaId } = req.body;
-    const taskId = String(req.params.id);
-    const task = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        ...(name !== undefined && { name: cleanText(name, 'name') }),
-        ...(startDate !== undefined && { startDate: requiredDate(startDate, 'startDate') }),
-        ...(endDate !== undefined && { endDate: requiredDate(endDate, 'endDate') }),
-        ...(progress !== undefined && { progress: requiredNumber(progress, 'progress', 0, 100) }),
-        ...(dependency !== undefined && { dependency: cleanText(dependency, 'dependency', false) }),
-        ...(ownerName !== undefined && { ownerName: cleanText(ownerName, 'ownerName') }),
-        ...(isPhase !== undefined && { isPhase: Boolean(isPhase) }),
-        ...(technicalAreaId !== undefined && { technicalAreaId: cleanText(technicalAreaId, 'technicalAreaId') })
-      },
-      include: { technicalArea: true, performanceMetrics: true, driveLinks: true }
-    });
-    res.json(task);
+    res.json(await patchTask(String(req.params.id), req.body));
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar la tarea' });
   }
@@ -261,7 +324,7 @@ app.get('/projects/:projectId/share-links', async (req, res) => {
     });
     res.json(links);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al obtener los enlaces' });
+    handleShareError(error, res);
   }
 });
 
@@ -283,7 +346,7 @@ app.post('/projects/:projectId/share-links', async (req: Request, res: Response)
     });
     res.status(201).json(link);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el enlace' });
+    handleShareError(error, res);
   }
 });
 
@@ -297,7 +360,7 @@ app.patch('/share-links/:id', async (req: Request, res: Response) => {
     const link = await prisma.shareLink.update({ where: { id: String(req.params.id) }, data });
     res.json(link);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar el enlace' });
+    handleShareError(error, res);
   }
 });
 
@@ -324,21 +387,19 @@ app.get('/shared/:token', async (req: Request, res: Response) => {
   }
 });
 
-// Editar el expediente mediante un enlace con rol de editor.
+// Editar los datos del expediente mediante un enlace con rol de editor.
 app.patch('/shared/:token', async (req: Request, res: Response) => {
   try {
     const link = await requireEditorLink(String(req.params.token));
-    const { name, startDate, endDate, budget, durationMonths, progress, ownerName } = req.body;
+    const { name, budget, ownerName } = req.body;
+    const patch = await buildProjectDatePatch(link.projectId, req.body.startDate, req.body.endDate);
     const project = await prisma.project.update({
       where: { id: link.projectId },
       data: {
         ...(name !== undefined && { name: cleanText(name, 'name') }),
-        ...(startDate !== undefined && { startDate: requiredDate(startDate, 'startDate') }),
-        ...(endDate !== undefined && { endDate: requiredDate(endDate, 'endDate') }),
         ...(budget !== undefined && { budget: requiredNumber(budget, 'budget') }),
-        ...(durationMonths !== undefined && { durationMonths: requiredNumber(durationMonths, 'durationMonths') }),
-        ...(progress !== undefined && { progress: requiredNumber(progress, 'progress', 0, 100) }),
         ...(ownerName !== undefined && { ownerName: cleanText(ownerName, 'ownerName') }),
+        ...patch,
       },
       include: projectInclude,
     });
@@ -348,24 +409,43 @@ app.patch('/shared/:token', async (req: Request, res: Response) => {
   }
 });
 
-// Actualizar el progreso de una tarea del expediente compartido (rol editor).
-app.patch('/shared/:token/tasks/:taskId', async (req: Request, res: Response) => {
+// Comprueba que la tarea pertenece al expediente del enlace (rol editor).
+async function taskOfShareLink(token: string, taskId: string) {
+  const link = await requireEditorLink(token);
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+  if (!task || task.projectId !== link.projectId) {
+    throw new ShareAccessError(404, 'Tarea no encontrada en este expediente.');
+  }
+  return link;
+}
+
+// Crear una tarea en el expediente compartido (rol editor).
+app.post('/shared/:token/tasks', async (req: Request, res: Response) => {
   try {
     const link = await requireEditorLink(String(req.params.token));
-    const taskId = String(req.params.taskId);
-    const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
-    if (!task || task.projectId !== link.projectId) {
-      res.status(404).json({ error: 'Tarea no encontrada' });
-      return;
-    }
-    const updated = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        ...(req.body.progress !== undefined && { progress: requiredNumber(req.body.progress, 'progress', 0, 100) }),
-      },
-      include: { technicalArea: true, performanceMetrics: true, driveLinks: true },
-    });
-    res.json(updated);
+    res.status(201).json(await createTaskForProject(link.projectId, req.body));
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Editar una tarea (progreso, fechas, responsable, etc.) del expediente compartido.
+app.patch('/shared/:token/tasks/:taskId', async (req: Request, res: Response) => {
+  try {
+    await taskOfShareLink(String(req.params.token), String(req.params.taskId));
+    res.json(await patchTask(String(req.params.taskId), req.body));
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Eliminar una tarea del expediente compartido (rol editor).
+app.delete('/shared/:token/tasks/:taskId', async (req: Request, res: Response) => {
+  try {
+    const link = await taskOfShareLink(String(req.params.token), String(req.params.taskId));
+    await prisma.task.delete({ where: { id: String(req.params.taskId) } });
+    await recomputeProjectProgress(link.projectId);
+    res.status(204).send();
   } catch (error) {
     handleShareError(error, res);
   }

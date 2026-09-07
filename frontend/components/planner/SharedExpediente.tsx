@@ -1,30 +1,52 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, Badge, EmptyState, StatCard } from "@/components/ui/Primitives";
-import { api } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { api, fetchShared } from "@/lib/api";
 import { currency, dateRange, isoDay } from "@/lib/format";
-import { normalizeTasks } from "@/lib/normalize";
-import type { GanttMode, Project, ProjectFormValues, RawTask, SharedPayload, Task } from "@/lib/types";
+import { normalizeTasks, toTaskDetail } from "@/lib/normalize";
+import type {
+  GanttMode,
+  Project,
+  ProjectFormValues,
+  RawTask,
+  SharedPayload,
+  Task,
+  TaskDetail,
+  TaskFormValues,
+  TechnicalArea,
+} from "@/lib/types";
 import { GanttChart } from "./GanttChart";
 import { ProjectFormModal, projectToForm } from "./ProjectFormModal";
+import { TaskFormModal } from "./TaskFormModal";
+
+type Modal = null | { kind: "project" } | { kind: "taskCreate" } | { kind: "taskEdit"; task: TaskDetail } | { kind: "taskDelete"; task: Task };
 
 export function SharedExpediente({ token, payload }: { token: string; payload: SharedPayload }) {
   const canEdit = payload.role === "editor";
 
   const [project, setProject] = useState<Project>(payload.project);
-  const [tasks, setTasks] = useState<Task[]>(() => normalizeTasks((payload.project.tasks ?? []) as RawTask[]));
   const [tab, setTab] = useState<"overview" | "gantt">("overview");
   const [ganttMode, setGanttMode] = useState<GanttMode>("month");
-  const [editing, setEditing] = useState(false);
+  const [modal, setModal] = useState<Modal>(null);
   const [notice, setNotice] = useState("");
+  const [areas, setAreas] = useState<TechnicalArea[]>([]);
 
+  const tasks = useMemo<Task[]>(() => normalizeTasks((project.tasks ?? []) as RawTask[]), [project]);
   const completed = project.progress === 100;
   const members = project.teamMembers ?? [];
   const milestones = project.milestones ?? [];
 
-  const initialForm = useMemo(() => projectToForm(project), [project]);
+  useEffect(() => {
+    if (canEdit) api.listTechnicalAreas().then(setAreas).catch(() => undefined);
+  }, [canEdit]);
+
+  const reload = useCallback(async () => {
+    const result = await fetchShared(token);
+    if (result.status === "ok") setProject(result.data.project);
+  }, [token]);
 
   async function saveProject(values: ProjectFormValues) {
     const updated = await api.patchSharedProject(token, {
@@ -32,25 +54,62 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
       startDate: values.startDate,
       endDate: values.endDate,
       budget: Number(values.budget),
-      durationMonths: Number(values.durationMonths),
       ownerName: values.ownerName.trim(),
     });
     setProject(updated);
-    setTasks(normalizeTasks((updated.tasks ?? []) as RawTask[]));
-    setEditing(false);
+    setModal(null);
     setNotice("Cambios guardados.");
   }
 
-  async function updateProgress(id: string, progress: number) {
+  async function saveTask(values: TaskFormValues, existing?: TaskDetail) {
+    const payloadData = {
+      name: values.name.trim(),
+      ownerName: values.ownerName.trim(),
+      startDate: values.startDate,
+      endDate: values.endDate,
+      technicalAreaId: values.technicalAreaId,
+      isPhase: values.isPhase,
+      dependency: values.dependency.trim(),
+    };
+    if (existing) await api.patchSharedTask(token, existing.id, payloadData);
+    else await api.createSharedTask(token, { ...payloadData, progress: 0 });
+    await reload();
+    setModal(null);
+    setNotice(existing ? "Tarea actualizada." : "Tarea creada.");
+  }
+
+  async function commitProgress(id: string, progress: number) {
     const previous = tasks.find((task) => task.id === id)?.progress ?? 0;
-    setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress } : task)));
+    // optimista sobre una copia local del proyecto
+    setProject((current) => ({
+      ...current,
+      tasks: (current.tasks ?? []).map((raw) =>
+        String((raw as RawTask).id) === id ? { ...(raw as RawTask), progress } : raw,
+      ),
+    }));
     try {
       await api.patchSharedTaskProgress(token, id, progress);
-      setNotice(`Progreso actualizado a ${progress}%.`);
+      await reload();
     } catch (error) {
-      setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress: previous } : task)));
+      setProject((current) => ({
+        ...current,
+        tasks: (current.tasks ?? []).map((raw) =>
+          String((raw as RawTask).id) === id ? { ...(raw as RawTask), progress: previous } : raw,
+        ),
+      }));
       setNotice(error instanceof Error ? error.message : "No fue posible guardar el progreso");
     }
+  }
+
+  async function createArea(name: string) {
+    const area = await api.createTechnicalArea(name);
+    setAreas((current) => [...current, area]);
+    return area;
+  }
+
+  function openTaskEdit(taskId: string) {
+    const raw = (project.tasks ?? []).find((t) => String((t as RawTask).id) === taskId);
+    if (raw) setModal({ kind: "taskEdit", task: toTaskDetail(raw as RawTask) });
   }
 
   return (
@@ -86,7 +145,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
             </div>
             {canEdit && (
               <div className="detail-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>
+                <button type="button" className="btn btn-secondary" onClick={() => setModal({ kind: "project" })}>
                   Editar expediente
                 </button>
               </div>
@@ -140,9 +199,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
                   <div className="section-heading">
                     <div>
                       <p className="eyebrow">Equipo del proyecto</p>
-                      <h2>
-                        Participantes <span className="count">{members.length}</span>
-                      </h2>
+                      <h2>Participantes <span className="count">{members.length}</span></h2>
                     </div>
                   </div>
                   {members.length ? (
@@ -167,9 +224,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
                   <div className="section-heading">
                     <div>
                       <p className="eyebrow">Fechas clave</p>
-                      <h2>
-                        Hitos del proyecto <span className="count">{milestones.length}</span>
-                      </h2>
+                      <h2>Hitos del proyecto <span className="count">{milestones.length}</span></h2>
                     </div>
                   </div>
                   {milestones.length ? (
@@ -197,20 +252,54 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
               tasks={tasks}
               mode={ganttMode}
               onToggleMode={() => setGanttMode((m) => (m === "month" ? "week" : "month"))}
-              onCreateTask={() => {}}
-              onUpdateProgress={updateProgress}
+              onCreateTask={() => setModal({ kind: "taskCreate" })}
+              onEditTask={openTaskEdit}
+              onDeleteTask={(task) => setModal({ kind: "taskDelete", task })}
+              onCommitProgress={commitProgress}
               readOnly={!canEdit}
             />
           )}
         </div>
       </main>
 
-      {editing && (
+      {modal?.kind === "project" && (
         <ProjectFormModal
           mode="edit"
-          initialValues={initialForm}
-          onClose={() => setEditing(false)}
+          initialValues={projectToForm(project)}
+          onClose={() => setModal(null)}
           onSubmit={saveProject}
+        />
+      )}
+      {modal?.kind === "taskCreate" && (
+        <TaskFormModal
+          mode="create"
+          technicalAreas={areas}
+          onCreateArea={createArea}
+          onSubmit={(values) => saveTask(values)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "taskEdit" && (
+        <TaskFormModal
+          mode="edit"
+          initialTask={modal.task}
+          technicalAreas={areas}
+          onCreateArea={createArea}
+          onSubmit={(values) => saveTask(values, modal.task)}
+          onExtrasChanged={() => void reload()}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "taskDelete" && (
+        <ConfirmDialog
+          title="Eliminar tarea"
+          message={`Eliminar la tarea "${modal.task.name}" del cronograma.`}
+          confirmLabel="Eliminar"
+          onConfirm={async () => {
+            await api.deleteSharedTask(token, modal.task.id);
+            await reload();
+          }}
+          onClose={() => setModal(null)}
         />
       )}
     </div>

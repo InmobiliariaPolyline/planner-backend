@@ -1690,9 +1690,150 @@ select:focus {
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
+.milestone-list li > div {
+  flex: 1;
+  min-width: 0;
+}
 .milestone-list li > div strong {
   font-size: var(--text-sm);
   font-weight: 600;
+}
+
+/* Botones de fila (editar / eliminar) en listas de equipo e hitos */
+.row-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.row-actions button,
+.row-remove {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+}
+.row-actions button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.row-remove {
+  flex-shrink: 0;
+}
+.row-remove:hover {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+
+/* Formularios: casilla, nota, crear-en-línea */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: end;
+  padding-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.checkbox-row input {
+  width: auto;
+  height: auto;
+  accent-color: var(--accent);
+}
+.field-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: var(--space-2) 0;
+}
+.inline-create {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.inline-create select,
+.inline-create input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Diálogo de confirmación */
+.confirm-message {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-5);
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Métricas y enlaces de Drive dentro de la edición de tarea */
+.task-extras {
+  display: grid;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+.task-extra h3 {
+  font-size: var(--text-sm);
+  font-weight: 650;
+  margin-bottom: var(--space-2);
+}
+.chip-list {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.chip-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.chip-list li.muted {
+  color: var(--text-muted);
+}
+.chip-list li > span,
+.chip-list li > a {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-list li button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.chip-list li button:hover {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+.task-extra-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.task-extra-add input {
+  flex: 1;
+  min-width: 110px;
+  height: 34px;
 }
 
 /* Gantt */
@@ -1785,6 +1926,12 @@ select:focus {
 .gantt-row:not(.gantt-row-head):hover {
   background: var(--surface-2);
 }
+.gantt-task-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
 .gantt-task {
   display: flex;
   align-items: center;
@@ -1793,10 +1940,36 @@ select:focus {
   background: none;
   text-align: left;
   min-width: 0;
+  flex: 1;
   color: var(--text-muted);
 }
 .gantt-task:disabled {
   cursor: default;
+}
+.gantt-row-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.gantt-row:hover .gantt-row-actions,
+.gantt-row:focus-within .gantt-row-actions {
+  opacity: 1;
+}
+.gantt-row-actions button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+}
+.gantt-row-actions button:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 .gantt-task strong {
   font-size: var(--text-sm);
