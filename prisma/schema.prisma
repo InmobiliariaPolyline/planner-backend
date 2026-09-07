@@ -29,6 +29,23 @@ model Project {
   tasks       Task[]
   milestones  Milestone[]
   teamMembers TeamMember[]
+  shareLinks  ShareLink[]
+}
+
+/// Enlace público para acceder a un expediente sin iniciar sesión.
+/// El token se rota (regenera) cuantas veces se quiera; no caduca.
+/// Al borrar el expediente se borran sus enlaces (onDelete: Cascade).
+model ShareLink {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  role      String   @default("viewer") // "viewer" | "editor"
+  label     String? // nombre opcional para distinguir enlaces
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 model Task {

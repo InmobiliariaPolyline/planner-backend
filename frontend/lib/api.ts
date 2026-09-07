@@ -1,7 +1,7 @@
 // Capa de acceso a la API Express. Un único lugar donde vive la URL base y el
 // manejo de respuestas. Los mensajes de error son los que ve el usuario.
 
-import type { Milestone, Project, RawTask, TeamMember } from "./types";
+import type { Milestone, Project, RawTask, ShareLink, ShareRole, SharedPayload, TeamMember } from "./types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -52,4 +52,46 @@ export const api = {
 
   updateTaskProgress: (taskId: string, progress: number) =>
     request<RawTask>(`/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify({ progress }) }, "No fue posible guardar el progreso"),
+
+  // ── Enlaces públicos ────────────────────────────────────────────────────
+  listShareLinks: (projectId: string) =>
+    request<ShareLink[]>(`/projects/${projectId}/share-links`, undefined, "No fue posible cargar los enlaces"),
+
+  createShareLink: (projectId: string, data: { role: ShareRole; label?: string }) =>
+    request<ShareLink>(`/projects/${projectId}/share-links`, { method: "POST", body: JSON.stringify(data) }, "No fue posible crear el enlace"),
+
+  updateShareLink: (id: string, data: { role?: ShareRole; rotate?: boolean; label?: string }) =>
+    request<ShareLink>(`/share-links/${id}`, { method: "PATCH", body: JSON.stringify(data) }, "No fue posible actualizar el enlace"),
+
+  deleteShareLink: (id: string) =>
+    request<void>(`/share-links/${id}`, { method: "DELETE" }, "No fue posible eliminar el enlace"),
+
+  // Edición mediante enlace de editor
+  patchSharedProject: (token: string, data: Record<string, unknown>) =>
+    request<Project>(`/shared/${token}`, { method: "PATCH", body: JSON.stringify(data) }, "No fue posible guardar los cambios"),
+
+  patchSharedTaskProgress: (token: string, taskId: string, progress: number) =>
+    request<RawTask>(`/shared/${token}/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify({ progress }) }, "No fue posible guardar el progreso"),
 };
+
+/**
+ * Resolución del enlace público. Devuelve un resultado discriminado en vez de
+ * lanzar, porque el 410 ("enlace rotado o expediente eliminado") es un estado
+ * esperado que tiene su propia pantalla.
+ */
+export type SharedResult =
+  | { status: "ok"; data: SharedPayload }
+  | { status: "gone" }
+  | { status: "error" };
+
+export async function fetchShared(token: string): Promise<SharedResult> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/shared/${encodeURIComponent(token)}`);
+  } catch {
+    return { status: "error" };
+  }
+  if (response.status === 410 || response.status === 404) return { status: "gone" };
+  if (!response.ok) return { status: "error" };
+  return { status: "ok", data: (await response.json()) as SharedPayload };
+}

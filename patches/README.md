@@ -27,6 +27,12 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`
   en `components/`, `hooks/` y `lib/`. Detalle en `frontend/DESIGN.md`. La lógica
   de interacción (prompts, confirmaciones) no cambió.
+- Enlaces públicos de expedientes: tabla `ShareLink` en Prisma
+  (migración `20260906120000_add_share_links`), endpoints `/share-links` y
+  `/shared/:token`, ruta pública `frontend/app/s/[token]` y pantalla
+  "expediente no disponible". Requiere `npx prisma migrate deploy` (o
+  `db push`) una vez sobre la base de Neon. Detalle en `frontend/DESIGN.md`
+  y la GUIA.
 
 ## Fuera de alcance por ahora
 

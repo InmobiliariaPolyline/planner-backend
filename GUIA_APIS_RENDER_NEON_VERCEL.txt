@@ -152,6 +152,19 @@ MIGRACIONES (parche 003):
 - Render no ejecuta migrate deploy en el build (sigue siendo prisma generate +
   tsc), asi que ningun deploy modifica la base por si solo.
 
+MIGRACION NUEVA — enlaces publicos (tabla ShareLink):
+
+- Se agrego prisma/migrations/20260906120000_add_share_links (crea la tabla
+  ShareLink para los enlaces publicos de expedientes).
+- Sobre la base de Neon existente, ejecutar UNA vez con la DATABASE_URL de Neon:
+
+    npx prisma migrate deploy
+
+  (Prisma vera 20260822221847_init como ya aplicada y solo creara ShareLink.)
+  Alternativa: npx prisma db push
+- Hasta que se cree la tabla, las rutas /share-links y /shared responden error;
+  el resto del sistema funciona igual.
+
 4. CONFIGURACION DE VERCEL (FRONTEND)
 --------------------------------------
 
@@ -234,6 +247,22 @@ Metricas de rendimiento:
 Enlaces de Drive:
   POST   /tasks/:taskId/drive-links
   DELETE /drive-links/:id
+
+Enlaces publicos de expedientes (tabla ShareLink):
+  GET    /projects/:projectId/share-links        lista los enlaces del expediente
+  POST   /projects/:projectId/share-links        crea uno   { role: "viewer"|"editor" }
+  PATCH  /share-links/:id                         { rotate?: true, role?, label? }
+  DELETE /share-links/:id                         revoca el enlace
+  GET    /shared/:token                           acceso publico -> { role, project }
+                                                  410 si el token se roto o el
+                                                  expediente fue eliminado
+  PATCH  /shared/:token                           edicion del expediente (rol editor)
+  PATCH  /shared/:token/tasks/:taskId             progreso de tarea (rol editor)
+
+  El token no caduca. Se accede desde el frontend:
+  https://plannerbackend.vercel.app/s/<token>
+  Si el token ya no resuelve, el frontend muestra una pantalla
+  "Este expediente ya no esta disponible".
 
 6. POR QUE APARECIA "SE GUARDARA EN ESTE NAVEGADOR"
 ----------------------------------------------------

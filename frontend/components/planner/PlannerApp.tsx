@@ -13,8 +13,9 @@ import { ProjectDetailView } from "./ProjectDetailView";
 import { ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
+import { ShareManager } from "./ShareManager";
 
-type ModalState = null | "create" | "edit";
+type ModalState = null | "create" | "edit" | "share";
 
 export function PlannerApp() {
   const { theme, toggleTheme } = useTheme();
@@ -276,6 +277,7 @@ export function PlannerApp() {
             onBack={() => setActiveView("projects")}
             onEdit={() => setModal("edit")}
             onDelete={() => void deleteProject(selectedProject)}
+            onShare={() => setModal("share")}
             onAddMember={() => void addMember()}
             onAddMilestone={() => void addMilestone()}
             gantt={
@@ -310,6 +312,13 @@ export function PlannerApp() {
           initialValues={projectToForm(selectedProject)}
           onClose={() => setModal(null)}
           onSubmit={updateProject}
+        />
+      )}
+      {modal === "share" && selectedProject && (
+        <ShareManager
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
+          onClose={() => setModal(null)}
         />
       )}
     </>

@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { prisma, pool, projectInclude } from './lib/prisma';
 import { cleanText, requiredDate, requiredNumber } from './lib/validation';
+import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAccessError } from './lib/share';
 
 const app = express();
 
@@ -234,6 +235,140 @@ app.post('/tasks/:taskId/drive-links', async (req, res) => {
 app.delete('/drive-links/:id', async (req, res) => {
   try { await prisma.driveLink.delete({ where: { id: String(req.params.id) } }); res.status(204).send(); }
   catch (_error) { res.status(404).json({ error: 'Enlace no encontrado' }); }
+});
+
+// ── Enlaces públicos de expedientes ────────────────────────────────────────
+// El token no caduca; se rota (regenera) cuantas veces se quiera. Al borrar el
+// expediente se borran sus enlaces por cascada.
+
+function handleShareError(error: unknown, res: Response) {
+  if (error instanceof ShareAccessError) {
+    res.status(error.status).json({ error: error.message });
+    return;
+  }
+  // Errores de validación (mensajes cortos de una línea) sí se muestran; los
+  // errores internos (p. ej. de Prisma) no se filtran al cliente.
+  const message = error instanceof Error ? error.message : '';
+  const safe = message && message.length < 160 && !message.includes('\n');
+  res.status(safe ? 400 : 500).json({ error: safe ? message : 'No fue posible procesar el enlace' });
+}
+
+app.get('/projects/:projectId/share-links', async (req, res) => {
+  try {
+    const links = await prisma.shareLink.findMany({
+      where: { projectId: String(req.params.projectId) },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(links);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al obtener los enlaces' });
+  }
+});
+
+app.post('/projects/:projectId/share-links', async (req: Request, res: Response) => {
+  try {
+    const projectId = String(req.params.projectId);
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
+    if (!project) {
+      res.status(404).json({ error: 'Proyecto no encontrado' });
+      return;
+    }
+    const link = await prisma.shareLink.create({
+      data: {
+        projectId,
+        token: newShareToken(),
+        role: parseRole(req.body.role),
+        label: cleanText(req.body.label, 'label', false) ?? null,
+      },
+    });
+    res.status(201).json(link);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el enlace' });
+  }
+});
+
+// Regenerar el token (rotate: true) y/o cambiar rol / etiqueta.
+app.patch('/share-links/:id', async (req: Request, res: Response) => {
+  try {
+    const data: Record<string, unknown> = {};
+    if (req.body.rotate) data.token = newShareToken();
+    if (req.body.role !== undefined) data.role = parseRole(req.body.role);
+    if (req.body.label !== undefined) data.label = cleanText(req.body.label, 'label', false) ?? null;
+    const link = await prisma.shareLink.update({ where: { id: String(req.params.id) }, data });
+    res.json(link);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar el enlace' });
+  }
+});
+
+app.delete('/share-links/:id', async (req: Request, res: Response) => {
+  try {
+    await prisma.shareLink.delete({ where: { id: String(req.params.id) } });
+    res.status(204).send();
+  } catch {
+    res.status(404).json({ error: 'Enlace no encontrado' });
+  }
+});
+
+// Acceso público. 410 = el enlace se rotó o el expediente fue eliminado.
+app.get('/shared/:token', async (req: Request, res: Response) => {
+  try {
+    const link = await resolveShareLink(String(req.params.token));
+    const project = await prisma.project.findUnique({ where: { id: link.projectId }, include: projectInclude });
+    if (!project) {
+      throw new ShareAccessError(410, 'El expediente fue eliminado del sistema.');
+    }
+    res.json({ role: link.role, project });
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Editar el expediente mediante un enlace con rol de editor.
+app.patch('/shared/:token', async (req: Request, res: Response) => {
+  try {
+    const link = await requireEditorLink(String(req.params.token));
+    const { name, startDate, endDate, budget, durationMonths, progress, ownerName } = req.body;
+    const project = await prisma.project.update({
+      where: { id: link.projectId },
+      data: {
+        ...(name !== undefined && { name: cleanText(name, 'name') }),
+        ...(startDate !== undefined && { startDate: requiredDate(startDate, 'startDate') }),
+        ...(endDate !== undefined && { endDate: requiredDate(endDate, 'endDate') }),
+        ...(budget !== undefined && { budget: requiredNumber(budget, 'budget') }),
+        ...(durationMonths !== undefined && { durationMonths: requiredNumber(durationMonths, 'durationMonths') }),
+        ...(progress !== undefined && { progress: requiredNumber(progress, 'progress', 0, 100) }),
+        ...(ownerName !== undefined && { ownerName: cleanText(ownerName, 'ownerName') }),
+      },
+      include: projectInclude,
+    });
+    res.json(project);
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Actualizar el progreso de una tarea del expediente compartido (rol editor).
+app.patch('/shared/:token/tasks/:taskId', async (req: Request, res: Response) => {
+  try {
+    const link = await requireEditorLink(String(req.params.token));
+    const taskId = String(req.params.taskId);
+    const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+    if (!task || task.projectId !== link.projectId) {
+      res.status(404).json({ error: 'Tarea no encontrada' });
+      return;
+    }
+    const updated = await prisma.task.update({
+      where: { id: taskId },
+      data: {
+        ...(req.body.progress !== undefined && { progress: requiredNumber(req.body.progress, 'progress', 0, 100) }),
+      },
+      include: { technicalArea: true, performanceMetrics: true, driveLinks: true },
+    });
+    res.json(updated);
+  } catch (error) {
+    handleShareError(error, res);
+  }
 });
 
 // 404 en JSON para rutas no registradas

@@ -19,12 +19,15 @@ export function GanttChart({
   onToggleMode,
   onCreateTask,
   onUpdateProgress,
+  readOnly = false,
 }: {
   tasks: Task[];
   mode: GanttMode;
   onToggleMode: () => void;
   onCreateTask: () => void;
   onUpdateProgress: (id: string, progress: number) => void;
+  /** Oculta las acciones de edición (crear tarea, ajustar progreso). */
+  readOnly?: boolean;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -39,6 +42,7 @@ export function GanttChart({
   }, [tasks]);
 
   const phases = tasks.filter((task) => task.phase).length;
+  const editable = !readOnly;
 
   return (
     <section className="gantt">
@@ -46,17 +50,21 @@ export function GanttChart({
         <div>
           <p className="eyebrow">Planificación detallada</p>
           <h2>Cronograma de ejecución</h2>
-          <p className="hero-lead">Haz clic en una tarea para ajustar su progreso.</p>
+          <p className="hero-lead">
+            {editable ? "Haz clic en una tarea para ajustar su progreso." : "Vista del cronograma."}
+          </p>
         </div>
         <div className="gantt-head-actions">
           <button type="button" className="btn btn-secondary" onClick={onToggleMode}>
             <Icon name="calendar" size={15} />
             Vista: {mode === "month" ? "Mes" : "Semana"}
           </button>
-          <button type="button" className="btn btn-primary" onClick={onCreateTask}>
-            <Icon name="plus" size={15} />
-            Nueva tarea
-          </button>
+          {editable && (
+            <button type="button" className="btn btn-primary" onClick={onCreateTask}>
+              <Icon name="plus" size={15} />
+              Nueva tarea
+            </button>
+          )}
         </div>
       </header>
 
@@ -93,14 +101,14 @@ export function GanttChart({
             </div>
 
             {tasks.map((task) => {
-              const open = editingId === task.id;
+              const open = editable && editingId === task.id;
               return (
                 <div key={task.id} className={task.phase ? "gantt-row is-phase" : "gantt-row"}>
                   <button
                     type="button"
                     className="gantt-task"
-                    onClick={() => !task.phase && setEditingId(open ? null : task.id)}
-                    disabled={task.phase}
+                    onClick={() => editable && !task.phase && setEditingId(open ? null : task.id)}
+                    disabled={task.phase || !editable}
                   >
                     <Icon name="grip" size={15} />
                     <span className="gantt-task-code">{task.id.slice(0, 4)}</span>
@@ -159,11 +167,17 @@ export function GanttChart({
         <EmptyState
           icon="calendar"
           title="Sin tareas en el cronograma"
-          description="Añade la primera tarea para empezar a planificar la ejecución."
+          description={
+            editable
+              ? "Añade la primera tarea para empezar a planificar la ejecución."
+              : "Este expediente aún no tiene tareas."
+          }
           action={
-            <button type="button" className="btn btn-secondary" onClick={onCreateTask}>
-              Nueva tarea
-            </button>
+            editable ? (
+              <button type="button" className="btn btn-secondary" onClick={onCreateTask}>
+                Nueva tarea
+              </button>
+            ) : undefined
           }
         />
       )}

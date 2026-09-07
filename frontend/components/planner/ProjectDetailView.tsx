@@ -15,6 +15,7 @@ export function ProjectDetailView({
   onBack,
   onEdit,
   onDelete,
+  onShare,
   onAddMember,
   onAddMilestone,
   gantt,
@@ -27,6 +28,7 @@ export function ProjectDetailView({
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onShare: () => void;
   onAddMember: () => void;
   onAddMilestone: () => void;
   gantt: ReactNode;
@@ -54,6 +56,10 @@ export function ProjectDetailView({
           <p className="hero-lead">Responsable: {project.ownerName}</p>
         </div>
         <div className="detail-actions">
+          <button type="button" className="btn btn-secondary" onClick={onShare}>
+            <Icon name="link" size={15} />
+            Compartir
+          </button>
           <button type="button" className="btn btn-secondary" onClick={onEdit}>
             Editar expediente
           </button>

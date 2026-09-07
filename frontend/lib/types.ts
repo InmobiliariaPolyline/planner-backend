@@ -66,3 +66,21 @@ export type ProjectFormValues = {
   ownerName: string;
   budget: string;
 };
+
+export type ShareRole = "viewer" | "editor";
+
+export type ShareLink = {
+  id: string;
+  token: string;
+  role: ShareRole;
+  label: string | null;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Respuesta de GET /shared/:token */
+export type SharedPayload = {
+  role: ShareRole;
+  project: Project;
+};

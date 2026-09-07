@@ -35,7 +35,29 @@ components/
     ProjectDetailView.tsx resumen (métricas, equipo, hitos) + pestañas
     GanttChart.tsx
     ProjectFormModal.tsx  alta y edición de expediente
+    ShareManager.tsx      panel "Compartir": generar / regenerar / cambiar rol /
+                          revocar enlaces públicos del expediente
+    SharedRoute.tsx       ruta pública /s/[token]: carga y decide qué mostrar
+    SharedExpediente.tsx  vista pública del expediente (solo lectura o editor)
+    ExpedienteUnavailable.tsx  pantalla "este expediente ya no está disponible"
 ```
+
+## Enlaces públicos de expedientes
+
+Cada expediente puede generar enlaces (`/s/<token>`) que abren el expediente
+**sin iniciar sesión**, desde cualquier dispositivo.
+
+- El token no caduca. Se **regenera** (rota) cuantas veces se quiera: el enlace
+  viejo deja de funcionar al instante.
+- Cada enlace tiene un rol: **solo lectura** o **editor** (editar el expediente y
+  el progreso de las tareas). El backend valida el rol en `PATCH /shared/:token*`.
+- Al **eliminar el expediente** se borran sus enlaces (cascada en Prisma).
+- Si el token ya no resuelve (rotado o expediente eliminado), el backend
+  responde **410** y el frontend muestra `ExpedienteUnavailable`: una pantalla
+  con diseño propio que dice que el expediente ya no está disponible y que se
+  contacte con el proveedor — en vez de un 404 seco.
+- Tabla `ShareLink` en `prisma/schema.prisma` (migración
+  `20260906120000_add_share_links`).
 
 La lógica de interacción no cambió: las altas de tarea, participante e hito
 siguen usando `window.prompt`, y el borrado usa `window.confirm`. Lo que se
