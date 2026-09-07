@@ -22,6 +22,12 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   ordenado; regeneracion de la migracion base; correccion del Gantt y del
   rollback de progreso; se elimina `lib/neon.ts`; se baja TypeScript 7 -> 5.9.
 
+## Cambios mayores (no son parches)
+
+- Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`
+  en `components/`, `hooks/` y `lib/`. Detalle en `frontend/DESIGN.md`. La lógica
+  de interacción (prompts, confirmaciones) no cambió.
+
 ## Fuera de alcance por ahora
 
 No se modifica la cadena de dependencias que `npm audit` reporto con tres
