@@ -21,6 +21,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   errores JSON, `/health`, validacion de `PATCH /tasks`, pool acotado y cierre
   ordenado; regeneracion de la migracion base; correccion del Gantt y del
   rollback de progreso; se elimina `lib/neon.ts`; se baja TypeScript 7 -> 5.9.
+- `005-responsive-sidebar.md`: la barra lateral ya no se desordena en anchos
+  intermedios (~700-1080 px); colapsa a solo iconos y no desborda.
 
 ## Cambios mayores (no son parches)
 

@@ -126,9 +126,10 @@ export function AppShell({
                 type="button"
                 className={active ? "nav-item is-active" : "nav-item"}
                 onClick={() => onNavigate(item.view)}
+                title={item.label}
               >
                 <Icon name={item.icon} size={18} />
-                {item.label}
+                <span className="nav-label">{item.label}</span>
               </button>
             );
           })}

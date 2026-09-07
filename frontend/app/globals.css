@@ -2072,24 +2072,46 @@ select:focus {
 
 /* 6. RESPONSIVE --------------------------------------------------------- */
 
-@media (max-width: 1080px) {
+/* La barra lateral nunca desborda su columna, en ningún ancho. */
+.sidebar {
+  overflow: hidden;
+}
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Entre ~720 y 1000 px: barra lateral compacta (solo iconos). */
+@media (max-width: 1000px) {
   :root {
-    --sidebar-w: 66px;
+    --sidebar-w: 64px;
   }
-  .sidebar-brand span,
-  .sidebar-brand strong,
+  .sidebar {
+    padding: var(--space-4) var(--space-2);
+    align-items: center;
+  }
+  .sidebar-brand > div,
   .sidebar-label,
-  .nav-item span:not(.count),
+  .nav-label,
   .sidebar-footer > div {
     display: none;
   }
-  .sidebar-brand,
-  .nav-item,
-  .sidebar-footer {
+  .sidebar-brand {
     justify-content: center;
+    padding: var(--space-1);
+  }
+  .sidebar-nav {
+    width: 100%;
   }
   .nav-item {
+    justify-content: center;
+    gap: 0;
     padding: var(--space-3) 0;
+  }
+  .sidebar-footer {
+    justify-content: center;
+    padding: var(--space-3) 0 0;
   }
   .dashboard-grid {
     grid-template-columns: 1fr;
