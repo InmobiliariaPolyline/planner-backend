@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es2016",
+    "target": "es2022",
     "module": "commonjs",
-    "allowJs": true,
     "rootDir": "./src",
     "outDir": "./dist",
     "esModuleInterop": true,
@@ -10,5 +9,9 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "src/generated/**/*.js"]
+  // El cliente Prisma generado NO se compila con tsc (downlevelearlo rompe su
+  // runtime: "Must call super constructor"). Se copia tal cual a dist/ en el
+  // paso de build de package.json.
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/generated"]
 }
