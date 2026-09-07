@@ -45,6 +45,19 @@ API). Se conservan las reglas responsive y las de `.login-*`.
   catálogos, render de la vista.
 - **`components/ui/Icon.tsx`**: icono `settings`.
 
+## Correcciones de modo oscuro (posteriores)
+
+- **Logotipo invisible en oscuro**: `.sidebar-brand span` / `.public-brand span`
+  alcanzaban también al `<span class="brand-mark">` y le imponían
+  `color: var(--text-muted)`, dejando el icono casi sin contraste sobre el
+  degradado morado. Los selectores se acotan a `> div span`. Mismo arreglo en
+  `.sidebar-footer span`, que apagaba las iniciales del avatar.
+- `--text-muted` en oscuro sube de `#79808d` a `#8a91a0` (AA en texto pequeño
+  para etiquetas, pistas y epígrafes).
+- `.crumb-sep` usa `--text-muted` (antes `--border-strong`, apenas visible).
+- Sombras con `rgba(15,22,41,…)` que se perdían en oscuro (`.ring-center`,
+  `.gantt-bar`) pasan a tokens de elevación / negro translúcido.
+
 ## Validación
 
 - `npx tsc --noEmit`, `npx eslint`, `npx next build`: correctos.
