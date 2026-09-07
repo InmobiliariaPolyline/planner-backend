@@ -24,7 +24,7 @@ hooks/
 
 components/
   ui/                 primitivas: Icon, Modal, ProgressBar, Badge, Avatar,
-                      StatCard, EmptyState, SectionHeading
+                      StatCard, EmptyState, SectionHeading, ValidatedField
   planner/
     PlannerApp.tsx        contenedor con estado y handlers (era el componente Home)
     Screens.tsx           LoadingScreen (logo + barra "iniciando sistema" + % ) + LoginScreen
@@ -68,6 +68,19 @@ mano fuera de esa sección.
   ilustrado del login.
 - ≤ 720px: se oculta la barra lateral; cabeceras y formularios en una columna.
 - El cronograma Gantt siempre hace scroll horizontal dentro de su contenedor.
+
+## Validación de formularios
+
+`ValidatedField` (usado en `ProjectFormModal`) valida en tiempo real contra la
+misma lógica que el backend (`src/lib/validation.ts`): obligatorio, ≤300
+caracteres, sin `< >`, fecha válida, número/entero, mínimos.
+
+- Al **enfocar** el campo: aparece una ventana con un ejemplo y la lista de
+  requisitos, marcando en verde los que ya se cumplen.
+- Al **salir del campo con error** (o al enviar): borde y sombra rojos, un aspa
+  roja dentro del campo y una línea corta debajo con el primer requisito que
+  falta.
+- El envío se bloquea mientras haya campos inválidos y se muestran todos.
 
 ## Temas
 

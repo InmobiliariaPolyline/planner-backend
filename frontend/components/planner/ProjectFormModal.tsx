@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
+import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import type { Project, ProjectFormValues } from "@/lib/types";
 
 const EMPTY: ProjectFormValues = {
@@ -25,6 +26,21 @@ export function projectToForm(project: Project): ProjectFormValues {
   };
 }
 
+const notEmpty = (v: string) => v.trim().length > 0;
+const maxLen = (v: string) => v.trim().length <= 300;
+const noAngles = (v: string) => !/[<>]/.test(v);
+const validDate = (v: string) => v === "" || !Number.isNaN(Date.parse(v));
+const isNumber = (v: string) => v.trim() === "" || Number.isFinite(Number(v));
+const isInteger = (v: string) => v.trim() === "" || Number.isInteger(Number(v));
+
+function textRules(): Rule[] {
+  return [
+    { label: "Obligatorio", test: notEmpty },
+    { label: "Máximo 300 caracteres", test: maxLen },
+    { label: "Sin los símbolos < o >", test: noAngles },
+  ];
+}
+
 export function ProjectFormModal({
   mode,
   initialValues,
@@ -38,26 +54,61 @@ export function ProjectFormModal({
 }) {
   const [values, setValues] = useState<ProjectFormValues>(initialValues ?? EMPTY);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const isEdit = mode === "edit";
 
-  function field<K extends keyof ProjectFormValues>(key: K) {
-    return {
-      value: values[key],
-      onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-        setValues((current) => ({ ...current, [key]: event.target.value })),
-    };
-  }
+  const set = (key: keyof ProjectFormValues) => (value: string) =>
+    setValues((current) => ({ ...current, [key]: value }));
+
+  const rules = useMemo<Record<keyof ProjectFormValues, Rule[]>>(
+    () => ({
+      name: textRules(),
+      ownerName: textRules(),
+      startDate: [
+        { label: "Obligatorio", test: notEmpty },
+        { label: "Fecha válida (AAAA-MM-DD)", test: validDate },
+      ],
+      endDate: [
+        { label: "Obligatorio", test: notEmpty },
+        { label: "Fecha válida (AAAA-MM-DD)", test: validDate },
+        {
+          label: "No puede ser anterior a la fecha de inicio",
+          test: (v) => v === "" || values.startDate === "" || v >= values.startDate,
+        },
+      ],
+      durationMonths: [
+        { label: "Obligatorio", test: notEmpty },
+        { label: "Solo números", test: isNumber },
+        { label: "Número entero", test: isInteger },
+        { label: "Mínimo 1 mes", test: (v) => v.trim() === "" || Number(v) >= 1 },
+      ],
+      budget: [
+        { label: "Obligatorio", test: notEmpty },
+        { label: "Solo números", test: isNumber },
+        { label: "Mayor o igual a 0", test: (v) => v.trim() === "" || Number(v) >= 0 },
+      ],
+    }),
+    [values.startDate],
+  );
+
+  const formInvalid = (Object.keys(rules) as (keyof ProjectFormValues)[]).some(
+    (key) => fieldError(values[key], rules[key]) !== null,
+  );
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    setServerError("");
+    if (formInvalid) {
+      setShowErrors(true);
+      return;
+    }
     setSaving(true);
-    setError("");
     try {
       await onSubmit(values);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "No fue posible guardar");
+    } catch (error) {
+      setServerError(error instanceof Error ? error.message : "No fue posible guardar");
     } finally {
       setSaving(false);
     }
@@ -74,37 +125,76 @@ export function ProjectFormModal({
       }
       onClose={onClose}
     >
-      <form className="form" onSubmit={handleSubmit}>
-        <label className="form-row">
-          <span>Nombre del proyecto</span>
-          <input {...field("name")} required />
-        </label>
+      <form className="form" onSubmit={handleSubmit} noValidate>
+        <ValidatedField
+          label="Nombre del proyecto"
+          example="Ampliación planta norte"
+          rules={rules.name}
+          value={values.name}
+          onChange={set("name")}
+          showErrors={showErrors}
+        />
         <div className="form-grid">
-          <label className="form-row">
-            <span>Fecha de inicio</span>
-            <input type="date" {...field("startDate")} required />
-          </label>
-          <label className="form-row">
-            <span>Fecha de término</span>
-            <input type="date" {...field("endDate")} required />
-          </label>
+          <ValidatedField
+            label="Fecha de inicio"
+            type="date"
+            example="2026-03-01"
+            rules={rules.startDate}
+            value={values.startDate}
+            onChange={set("startDate")}
+            showErrors={showErrors}
+          />
+          <ValidatedField
+            label="Fecha de término"
+            type="date"
+            example="2026-11-30"
+            rules={rules.endDate}
+            value={values.endDate}
+            onChange={set("endDate")}
+            showErrors={showErrors}
+            align="right"
+          />
         </div>
         <div className="form-grid">
-          <label className="form-row">
-            <span>Duración (meses)</span>
-            <input type="number" min="1" {...field("durationMonths")} required />
-          </label>
-          <label className="form-row">
-            <span>Responsable</span>
-            <input {...field("ownerName")} required />
-          </label>
+          <ValidatedField
+            label="Duración (meses)"
+            type="number"
+            inputMode="numeric"
+            min="1"
+            step="1"
+            example="9"
+            rules={rules.durationMonths}
+            value={values.durationMonths}
+            onChange={set("durationMonths")}
+            showErrors={showErrors}
+          />
+          <ValidatedField
+            label="Responsable"
+            example="María Fernanda Ruiz"
+            rules={rules.ownerName}
+            value={values.ownerName}
+            onChange={set("ownerName")}
+            showErrors={showErrors}
+            align="right"
+          />
         </div>
-        <label className="form-row">
-          <span>Presupuesto oficial</span>
-          <input type="number" min="0" {...field("budget")} required />
-        </label>
+        <ValidatedField
+          label="Presupuesto oficial"
+          type="number"
+          inputMode="decimal"
+          min="0"
+          example="4850000"
+          rules={rules.budget}
+          value={values.budget}
+          onChange={set("budget")}
+          showErrors={showErrors}
+          placement="top"
+        />
 
-        {error && <p className="form-error">{error}</p>}
+        {serverError && <p className="form-error">{serverError}</p>}
+        {showErrors && formInvalid && (
+          <p className="form-error">Revisa los campos marcados en rojo.</p>
+        )}
 
         <button type="submit" className="btn btn-primary btn-block" disabled={saving}>
           {saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear expediente"}
