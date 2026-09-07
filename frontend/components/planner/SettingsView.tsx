@@ -177,7 +177,7 @@ export function SettingsView({
     <div className="view settings">
       <header className="hero">
         <div>
-          <p className="eyebrow">Configuración</p>
+          <p className="eyebrow">Catálogos</p>
           <h1>Catálogos del sistema</h1>
           <p className="hero-lead">
             Áreas técnicas y estados de equipo que se usan al crear tareas y participantes. No se

@@ -133,7 +133,8 @@ components/
     TaskFormModal.tsx      alta y edición de tarea + métricas + enlaces de Drive
     MemberFormModal.tsx    alta de participante
     MilestoneFormModal.tsx alta y edición de hito
-    SettingsView.tsx       «Configuración»: alta y baja de áreas técnicas y estados de equipo
+    SettingsView.tsx       «Catálogos»: alta y baja de áreas técnicas y estados de equipo
+    GuideView.tsx          «Guía de uso»: manual del sistema paso a paso, con figuras
     ShareManager.tsx       panel «Compartir»
     SharedRoute.tsx        ruta /s/[token]: decide qué mostrar
     SharedExpediente.tsx   vista pública del expediente

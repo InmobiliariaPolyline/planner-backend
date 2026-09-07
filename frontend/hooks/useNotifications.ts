@@ -6,6 +6,10 @@ import type { Notification } from "@/lib/types";
 const MAX = 12;
 const KEY = "project-planner-notifications";
 
+let seq = 0;
+/** id único aunque se disparen dos avisos en el mismo milisegundo */
+const nextId = () => Date.now() * 1000 + (seq++ % 1000);
+
 function load(): Notification[] {
   if (typeof window === "undefined") return [];
   try {
@@ -38,11 +42,16 @@ export function useNotifications() {
 
   const notify = useCallback((message: string) => {
     setNotifications((current) =>
-      [{ id: Date.now(), message, createdAt: Date.now() }, ...current].slice(0, MAX),
+      [{ id: nextId(), message, createdAt: Date.now() }, ...current].slice(0, MAX),
     );
   }, []);
 
+  const dismiss = useCallback(
+    (id: number) => setNotifications((current) => current.filter((item) => item.id !== id)),
+    [],
+  );
+
   const clear = useCallback(() => setNotifications([]), []);
 
-  return { notifications, notify, clear };
+  return { notifications, notify, dismiss, clear };
 }

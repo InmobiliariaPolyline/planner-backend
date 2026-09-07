@@ -47,14 +47,25 @@ export function ValidatedField({
 }) {
   const id = useId();
   const [touched, setTouched] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [focused, setFocused] = useState(false);
 
   const firstError = fieldError(value, rules);
-  const errorVisible = firstError !== null && (touched || showErrors);
-  // Mientras el campo tiene el foco: guía completa (ejemplo + requisitos).
+
+  // El borde rojo y el aviso bajo el campo solo aparecen si:
+  //  (a) se intentó enviar el formulario (showErrors), o
+  //  (b) el usuario escribió algo, lo dejó inválido y salió del campo.
+  // Entrar y salir sin escribir nada, o dejarlo a medias, no marca nada.
+  const blurredWithContent = touched && dirty && value.trim() !== "";
+  const errorVisible = firstError !== null && (showErrors || blurredWithContent);
+
+  // Mientras el campo tiene el foco: guía completa (ejemplo + requisitos en vivo).
   // Al salir con error: solo una línea compacta que no tapa los demás campos.
   const showGuide = focused;
   const showInlineError = errorVisible && !focused;
+  // Los requisitos sin cumplir se pintan en rojo en cuanto el usuario empieza a
+  // escribir (o tras intentar enviar); antes de escribir, en gris neutro.
+  const flagUnmet = dirty || showErrors;
 
   return (
     <div className={`vfield${errorVisible ? " is-invalid" : ""}`}>
@@ -70,7 +81,10 @@ export function ValidatedField({
           placeholder={placeholder}
           aria-invalid={errorVisible || undefined}
           aria-describedby={showGuide || showInlineError ? `${id}-help` : undefined}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => {
+            setDirty(true);
+            onChange(event.target.value);
+          }}
           onFocus={() => setFocused(true)}
           onBlur={() => {
             setFocused(false);
@@ -95,9 +109,10 @@ export function ValidatedField({
             <ul>
               {rules.map((rule, index) => {
                 const ok = rule.test(value);
+                const state = ok ? "ok" : flagUnmet ? "bad" : "pending";
                 return (
-                  <li key={index} className={ok ? "ok" : "pending"}>
-                    <Icon name={ok ? "check" : "dots"} size={12} />
+                  <li key={index} className={state}>
+                    <Icon name={ok ? "check" : state === "bad" ? "x" : "dots"} size={12} />
                     {rule.label}
                   </li>
                 );

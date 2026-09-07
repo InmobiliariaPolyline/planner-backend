@@ -44,11 +44,12 @@ export function SelectOrCreate({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [touched, setTouched] = useState(false);
   const [focused, setFocused] = useState(false);
 
   const missing = required && !value && !creating;
-  const errorVisible = missing && (touched || showErrors);
+  // Solo se marca en rojo tras intentar enviar; abrir el desplegable y cerrarlo
+  // sin elegir no marca nada.
+  const errorVisible = missing && showErrors;
   const draftProblem = fieldError(draft, draftRules);
 
   async function create() {
@@ -130,10 +131,7 @@ export function SelectOrCreate({
               aria-invalid={errorVisible || undefined}
               onChange={(event) => onChange(event.target.value)}
               onFocus={() => setFocused(true)}
-              onBlur={() => {
-                setFocused(false);
-                setTouched(true);
-              }}
+              onBlur={() => setFocused(false)}
             >
               <option value="">{placeholderOption}</option>
               {options.map((option) => (

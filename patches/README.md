@@ -32,6 +32,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   (tokens, elevación, modo oscuro, modales con cabecera/cuerpo, marcadores del
   Gantt) y vista nueva de "Configuración" para crear y eliminar áreas técnicas
   y estados de equipo. La pantalla de acceso no se toca.
+- `008-guia-notificaciones-validacion.md`: módulo «Guía de uso» (manual paso a
+  paso con figuras), «x» para descartar notificaciones sueltas, validación de
+  formularios que ya no marca en rojo los campos vacíos hasta enviar, e iconos
+  de navegación revisados («Catálogos» en vez de engranaje).
 
 ## Cambios mayores (no son parches)
 

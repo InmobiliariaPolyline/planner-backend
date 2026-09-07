@@ -22,6 +22,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AppShell } from "./AppShell";
 import { DashboardView } from "./DashboardView";
 import { GanttChart } from "./GanttChart";
+import { GuideView } from "./GuideView";
 import { MemberFormModal } from "./MemberFormModal";
 import { MilestoneFormModal } from "./MilestoneFormModal";
 import { ProjectDetailView } from "./ProjectDetailView";
@@ -46,7 +47,12 @@ type Modal =
 
 export function PlannerApp() {
   const { theme, toggleTheme } = useTheme();
-  const { notifications, notify, clear: clearNotifications } = useNotifications();
+  const {
+    notifications,
+    notify,
+    dismiss: dismissNotification,
+    clear: clearNotifications,
+  } = useNotifications();
 
   const [isBooting, setIsBooting] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -341,6 +347,7 @@ export function PlannerApp() {
         notifications={notifications}
         onNavigate={navigate}
         onToggleTheme={toggleTheme}
+        onDismissNotification={dismissNotification}
         onClearNotifications={clearNotifications}
         onSignOut={() => setAuthenticated(false)}
       >
@@ -382,6 +389,8 @@ export function PlannerApp() {
             onDeleteStatus={deleteTeamStatus}
           />
         )}
+
+        {activeView === "guide" && <GuideView onNavigate={navigate} />}
 
         {(activeView === "overview" || activeView === "gantt") && selectedProject && (
           <ProjectDetailView

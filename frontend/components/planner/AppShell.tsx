@@ -18,7 +18,8 @@ function buildCrumbs(
   onNavigate: (view: ActiveView) => void,
 ): Crumb[] {
   if (activeView === "dashboard") return [{ label: "Dashboard" }];
-  if (activeView === "settings") return [{ label: "Configuración" }];
+  if (activeView === "settings") return [{ label: "Catálogos del sistema" }];
+  if (activeView === "guide") return [{ label: "Guía de uso" }];
   if (activeView === "projects") return [{ label: "Mis expedientes" }];
   const crumbs: Crumb[] = [{ label: "Mis expedientes", onClick: () => onNavigate("projects") }];
   if (selectedProject) {
@@ -30,9 +31,11 @@ function buildCrumbs(
 
 function NotificationsMenu({
   notifications,
+  onDismiss,
   onClear,
 }: {
   notifications: Notification[];
+  onDismiss: (id: number) => void;
   onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -52,9 +55,11 @@ function NotificationsMenu({
         <div className="notif-panel" role="menu">
           <header>
             <strong>Notificaciones</strong>
-            <button type="button" className="link-btn" onClick={onClear}>
-              Limpiar
-            </button>
+            {notifications.length > 0 && (
+              <button type="button" className="link-btn" onClick={onClear}>
+                Limpiar todo
+              </button>
+            )}
           </header>
           {notifications.length ? (
             <ul>
@@ -65,6 +70,14 @@ function NotificationsMenu({
                     <p>{item.message}</p>
                     <span>{relativeTime(item.createdAt)}</span>
                   </div>
+                  <button
+                    type="button"
+                    className="notif-dismiss"
+                    onClick={() => onDismiss(item.id)}
+                    aria-label="Descartar esta notificación"
+                  >
+                    <Icon name="x" size={13} />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -84,6 +97,7 @@ export function AppShell({
   notifications,
   onNavigate,
   onToggleTheme,
+  onDismissNotification,
   onClearNotifications,
   onSignOut,
   children,
@@ -94,19 +108,27 @@ export function AppShell({
   notifications: Notification[];
   onNavigate: (view: ActiveView) => void;
   onToggleTheme: () => void;
+  onDismissNotification: (id: number) => void;
   onClearNotifications: () => void;
   onSignOut: () => void;
   children: ReactNode;
 }) {
   const crumbs = buildCrumbs(activeView, selectedProject, onNavigate);
-  const navItems: { view: ActiveView; label: string; icon: "dashboard" | "folder" | "settings" }[] = [
+  const navItems: { view: ActiveView; label: string; icon: "dashboard" | "folder" | "tags" | "book" }[] = [
     { view: "dashboard", label: "Dashboard", icon: "dashboard" },
     { view: "projects", label: "Mis expedientes", icon: "folder" },
-    { view: "settings", label: "Configuración", icon: "settings" },
+    { view: "settings", label: "Catálogos", icon: "tags" },
+    { view: "guide", label: "Guía de uso", icon: "book" },
   ];
 
   const activeNav: ActiveView =
-    activeView === "dashboard" ? "dashboard" : activeView === "settings" ? "settings" : "projects";
+    activeView === "dashboard"
+      ? "dashboard"
+      : activeView === "settings"
+        ? "settings"
+        : activeView === "guide"
+          ? "guide"
+          : "projects";
 
   return (
     <div className="shell">
@@ -178,7 +200,11 @@ export function AppShell({
             >
               <Icon name="search" size={18} />
             </button>
-            <NotificationsMenu notifications={notifications} onClear={onClearNotifications} />
+            <NotificationsMenu
+              notifications={notifications}
+              onDismiss={onDismissNotification}
+              onClear={onClearNotifications}
+            />
             <button
               type="button"
               className="icon-btn"
