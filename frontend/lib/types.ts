@@ -81,7 +81,7 @@ export type Project = {
 export type StatusFilter = "all" | "active" | "completed";
 export type SortOrder = "recent" | "name" | "progress";
 export type GanttMode = "month" | "week";
-export type ActiveView = "dashboard" | "projects" | "overview" | "gantt";
+export type ActiveView = "dashboard" | "projects" | "overview" | "gantt" | "settings";
 
 export type Notification = {
   id: number;

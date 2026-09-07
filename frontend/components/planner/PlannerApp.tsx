@@ -28,6 +28,7 @@ import { ProjectDetailView } from "./ProjectDetailView";
 import { ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
+import { SettingsView } from "./SettingsView";
 import { ShareManager } from "./ShareManager";
 import { TaskFormModal } from "./TaskFormModal";
 
@@ -134,6 +135,16 @@ export function PlannerApp() {
     const status = await api.createTeamStatus(type);
     setTeamStatuses((current) => [...current, status].sort((a, b) => a.type.localeCompare(b.type)));
     return status;
+  }
+  async function deleteTechnicalArea(id: string, label: string) {
+    await api.deleteTechnicalArea(id);
+    setTechnicalAreas((current) => current.filter((area) => area.id !== id));
+    notify(`Área técnica eliminada: ${label}.`);
+  }
+  async function deleteTeamStatus(id: string, label: string) {
+    await api.deleteTeamStatus(id);
+    setTeamStatuses((current) => current.filter((status) => status.id !== id));
+    notify(`Estado de equipo eliminado: ${label}.`);
   }
 
   // ── Proyectos ────────────────────────────────────────────────────────────
@@ -321,6 +332,21 @@ export function PlannerApp() {
             onCreate={() => setModal({ kind: "projectCreate" })}
             onSelect={selectProject}
             onDelete={askDeleteProject}
+          />
+        )}
+
+        {activeView === "settings" && (
+          <SettingsView
+            technicalAreas={technicalAreas}
+            teamStatuses={teamStatuses}
+            onCreateArea={async (name) => {
+              await createTechnicalArea(name);
+            }}
+            onDeleteArea={deleteTechnicalArea}
+            onCreateStatus={async (type) => {
+              await createTeamStatus(type);
+            }}
+            onDeleteStatus={deleteTeamStatus}
           />
         )}
 

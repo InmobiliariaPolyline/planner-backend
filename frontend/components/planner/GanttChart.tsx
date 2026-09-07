@@ -87,17 +87,25 @@ export function GanttChart({
   readOnly?: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
   const editable = !readOnly;
 
-  const { rangeStart, rangeEnd, columns } = useMemo(() => {
+  const { rangeStart, rangeEnd, columns, todayLeft } = useMemo(() => {
     const times = tasks
       .flatMap((task) => [new Date(task.startISO).getTime(), new Date(task.endISO).getTime()])
       .filter((value) => Number.isFinite(value));
     const [fbStart, fbEnd] = fallbackRange();
     const start = times.length ? Math.min(...times) : fbStart;
     const end = times.length ? Math.max(...times) : fbEnd;
-    return { rangeStart: start, rangeEnd: end, columns: timelineColumns(start, end) };
-  }, [tasks]);
+    const span = end - start || 1;
+    const pct = ((now - start) / span) * 100;
+    return {
+      rangeStart: start,
+      rangeEnd: end,
+      columns: timelineColumns(start, end),
+      todayLeft: pct >= 0 && pct <= 100 ? pct : null,
+    };
+  }, [tasks, now]);
 
   const phases = tasks.filter((task) => task.phase).length;
 
@@ -133,6 +141,9 @@ export function GanttChart({
           <span><i className="dot tone-success" /> Completada</span>
           <span><i className="dot tone-accent" /> En curso</span>
           <span><i className="dot tone-warning" /> Atención</span>
+          {todayLeft !== null && (
+            <span><i className="gantt-legend-today" /> Hoy</span>
+          )}
         </span>
       </div>
 
@@ -199,6 +210,9 @@ export function GanttChart({
                   </div>
 
                   <div className="gantt-track">
+                    {todayLeft !== null && (
+                      <span className="gantt-today" style={{ left: `${todayLeft}%` }} aria-hidden="true" />
+                    )}
                     <span
                       className={`gantt-bar tone-${barTone(task.progress)}`}
                       style={barStyle(task, rangeStart, rangeEnd)}

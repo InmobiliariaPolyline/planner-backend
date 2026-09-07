@@ -1,0 +1,54 @@
+# Parche 007: refinamiento visual e interfaz de configuración
+
+Repaso del sistema de diseño del frontend y una vista nueva para administrar los
+catálogos. **La pantalla de acceso no se toca** (sigue siendo demo sin
+autenticación, decisión temporal del proyecto).
+
+## Sistema de diseño (`frontend/app/globals.css`)
+
+Refinamiento en el sitio, sin renombrar clases (los componentes no cambian de
+API). Se conservan las reglas responsive y las de `.login-*`.
+
+- **Tokens**: escala tipográfica y de radios ampliada; fondo y superficies
+  recalibrados (más contraste entre `--surface`, `--surface-2`, `--surface-3`);
+  `--accent-2` para degradados; anillo de foco `--accent-ring`; tokens de
+  elevación en capas (`--elev-1..4`) y de motion (`--ease`, `--ease-out`,
+  `--dur-*`). `color-scheme` explícito en claro y oscuro.
+- **Modo oscuro** retocado: `--accent-fg` pasa a blanco (antes casi negro sobre
+  el acento), superficies y peligro reajustados, sombras propias.
+- **Base**: `text-rendering`, `text-wrap: balance` en títulos, `::selection`,
+  barras de desplazamiento finas, `.skeleton` con shimmer, respeto de
+  `prefers-reduced-motion`.
+- **Primitivas**: botón primario con degradado y sombra de color; `.btn-ghost`
+  nuevo; `.badge` con punto de color; `.stat-card`, `.empty-state`, `.ring`,
+  `.project-card` (franja superior en hover), `.progress`, `.tabs` y `.nav-item`
+  (píldora de acento en el ítem activo) revisados.
+- **Inputs**: se estilan también `email` / `password` / `url` / `textarea`;
+  estados hover / focus / disabled; icono del date-picker visible en oscuro.
+- **Modal**: estructura explícita `.modal-head` + `.modal-body` (cabecera fija,
+  cuerpo con scroll), backdrop con desenfoque, animación de entrada.
+- **Gantt**: líneas de cuadrícula en la pista, marcador de "Hoy" y su leyenda,
+  barras con degradado.
+
+## Interfaz de configuración (nuevo)
+
+- **`components/planner/SettingsView.tsx`**: vista "Configuración" con dos
+  paneles (`CatalogPanel`) para **áreas técnicas** y **estados de equipo**:
+  listar, crear en línea y eliminar. El borrado muestra el error del backend
+  (409 si el elemento está en uso).
+- **`lib/api.ts`**: `deleteTechnicalArea` y `deleteTeamStatus` (consumen los
+  `DELETE` añadidos en el parche 006).
+- **`lib/types.ts`**: `ActiveView` incluye `"settings"`.
+- **`components/planner/AppShell.tsx`**: ítem de navegación "Configuración"
+  (icono nuevo) y su miga de pan.
+- **`components/planner/PlannerApp.tsx`**: estado y manejadores de alta/baja de
+  catálogos, render de la vista.
+- **`components/ui/Icon.tsx`**: icono `settings`.
+
+## Validación
+
+- `npx tsc --noEmit`, `npx eslint`, `npx next build`: correctos.
+- Probado contra Neon: alta y baja de área técnica desde la vista de
+  configuración; navegación entre Dashboard / Expedientes / Detalle / Gantt /
+  Configuración; modales con la nueva estructura (cerrar con Escape y clic
+  fuera); modo claro y oscuro.

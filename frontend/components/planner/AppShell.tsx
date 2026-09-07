@@ -18,6 +18,7 @@ function buildCrumbs(
   onNavigate: (view: ActiveView) => void,
 ): Crumb[] {
   if (activeView === "dashboard") return [{ label: "Dashboard" }];
+  if (activeView === "settings") return [{ label: "Configuración" }];
   if (activeView === "projects") return [{ label: "Mis expedientes" }];
   const crumbs: Crumb[] = [{ label: "Mis expedientes", onClick: () => onNavigate("projects") }];
   if (selectedProject) {
@@ -98,11 +99,14 @@ export function AppShell({
   children: ReactNode;
 }) {
   const crumbs = buildCrumbs(activeView, selectedProject, onNavigate);
-  const navItems: { view: ActiveView; label: string; icon: "dashboard" | "folder" }[] = [
+  const navItems: { view: ActiveView; label: string; icon: "dashboard" | "folder" | "settings" }[] = [
     { view: "dashboard", label: "Dashboard", icon: "dashboard" },
     { view: "projects", label: "Mis expedientes", icon: "folder" },
+    { view: "settings", label: "Configuración", icon: "settings" },
   ];
-  const isProjectsActive = activeView !== "dashboard";
+
+  const activeNav: ActiveView =
+    activeView === "dashboard" ? "dashboard" : activeView === "settings" ? "settings" : "projects";
 
   return (
     <div className="shell">
@@ -120,7 +124,7 @@ export function AppShell({
         <p className="sidebar-label">Espacio de trabajo</p>
         <nav className="sidebar-nav">
           {navItems.map((item) => {
-            const active = item.view === "dashboard" ? activeView === "dashboard" : isProjectsActive;
+            const active = activeNav === item.view;
             return (
               <button
                 key={item.view}

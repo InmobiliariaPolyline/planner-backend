@@ -87,9 +87,13 @@ export const api = {
   listTeamStatuses: () => request<{ id: string; type: string }[]>("/team-statuses", { failMessage: "No fue posible cargar los estados de equipo" }),
   createTeamStatus: (type: string) =>
     request<{ id: string; type: string }>("/team-statuses", { method: "POST", body: json({ type }), failMessage: "No fue posible crear el estado" }),
+  deleteTeamStatus: (id: string) =>
+    request<void>(`/team-statuses/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar el estado" }),
   listTechnicalAreas: () => request<{ id: string; name: string }[]>("/technical-areas", { failMessage: "No fue posible cargar las áreas técnicas" }),
   createTechnicalArea: (name: string) =>
     request<{ id: string; name: string }>("/technical-areas", { method: "POST", body: json({ name }), failMessage: "No fue posible crear el área" }),
+  deleteTechnicalArea: (id: string) =>
+    request<void>(`/technical-areas/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar el área" }),
 
   // Participantes
   createTeamMember: (projectId: string, data: { name: string; teamStatusId: string }) =>

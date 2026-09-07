@@ -28,6 +28,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   (modales reales), editar/eliminar tareas/participantes/hitos, métricas y
   Drive con UI, debounce del slider, reintentos ante arranque en frío, CI,
   pruebas unitarias.
+- `007-rediseno-interfaz-configuracion.md`: refinamiento del sistema de diseño
+  (tokens, elevación, modo oscuro, modales con cabecera/cuerpo, marcadores del
+  Gantt) y vista nueva de "Configuración" para crear y eliminar áreas técnicas
+  y estados de equipo. La pantalla de acceso no se toca.
 
 ## Cambios mayores (no son parches)
 
