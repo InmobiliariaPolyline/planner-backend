@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/hooks/useTheme";
 import { api, onServerWaking } from "@/lib/api";
@@ -126,6 +126,29 @@ export function PlannerApp() {
   const closeModal = useCallback(() => setModal(null), []);
 
   // ── Catálogos ────────────────────────────────────────────────────────────
+  // Cuántas tareas / participantes usan cada elemento del catálogo. Sirve para
+  // desactivar el botón de eliminar; el backend además responde 409 si se
+  // intenta borrar un elemento en uso (última barrera).
+  const areaUsage = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const project of projects) {
+      for (const task of project.tasks ?? []) {
+        const id = (task as { technicalAreaId?: unknown }).technicalAreaId;
+        if (typeof id === "string") counts[id] = (counts[id] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [projects]);
+  const statusUsage = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const project of projects) {
+      for (const member of project.teamMembers ?? []) {
+        if (member.teamStatusId) counts[member.teamStatusId] = (counts[member.teamStatusId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [projects]);
+
   async function createTechnicalArea(name: string) {
     const area = await api.createTechnicalArea(name);
     setTechnicalAreas((current) => [...current, area].sort((a, b) => a.name.localeCompare(b.name)));
@@ -137,11 +160,19 @@ export function PlannerApp() {
     return status;
   }
   async function deleteTechnicalArea(id: string, label: string) {
+    const inUse = areaUsage[id] ?? 0;
+    if (inUse > 0) {
+      throw new Error(`No se puede eliminar "${label}": ${inUse} tarea(s) usan esta área.`);
+    }
     await api.deleteTechnicalArea(id);
     setTechnicalAreas((current) => current.filter((area) => area.id !== id));
     notify(`Área técnica eliminada: ${label}.`);
   }
   async function deleteTeamStatus(id: string, label: string) {
+    const inUse = statusUsage[id] ?? 0;
+    if (inUse > 0) {
+      throw new Error(`No se puede eliminar "${label}": ${inUse} participante(s) tienen este estado.`);
+    }
     await api.deleteTeamStatus(id);
     setTeamStatuses((current) => current.filter((status) => status.id !== id));
     notify(`Estado de equipo eliminado: ${label}.`);
@@ -339,6 +370,8 @@ export function PlannerApp() {
           <SettingsView
             technicalAreas={technicalAreas}
             teamStatuses={teamStatuses}
+            areaUsage={areaUsage}
+            statusUsage={statusUsage}
             onCreateArea={async (name) => {
               await createTechnicalArea(name);
             }}

@@ -61,6 +61,7 @@ export type Milestone = {
 export type TeamMember = {
   id: string;
   name: string;
+  teamStatusId: string;
   teamStatus: { type: string };
 };
 

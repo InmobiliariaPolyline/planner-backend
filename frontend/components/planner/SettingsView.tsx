@@ -22,6 +22,8 @@ function CatalogPanel({
   label,
   example,
   items,
+  usage,
+  usageNoun,
   onCreate,
   onDelete,
 }: {
@@ -32,6 +34,10 @@ function CatalogPanel({
   label: string;
   example: string;
   items: Item[];
+  /** Nº de tareas / participantes que usan cada elemento (por id) */
+  usage: Record<string, number>;
+  /** "tarea" | "participante" — para el texto "en uso por N …" */
+  usageNoun: string;
   onCreate: (name: string) => Promise<void>;
   onDelete: (id: string, label: string) => Promise<void>;
 }) {
@@ -90,19 +96,38 @@ function CatalogPanel({
 
       {items.length ? (
         <ul className="catalog-list">
-          {items.map((item) => (
-            <li key={item.id}>
-              <span>{item.label}</span>
-              <button
-                type="button"
-                className="row-remove"
-                onClick={() => remove(item.id, item.label)}
-                aria-label={`Eliminar ${item.label}`}
-              >
-                <Icon name="trash" size={14} />
-              </button>
-            </li>
-          ))}
+          {items.map((item) => {
+            const used = usage[item.id] ?? 0;
+            return (
+              <li key={item.id}>
+                <span>{item.label}</span>
+                {used > 0 && (
+                  <span className="catalog-inuse">
+                    En uso · {used} {usageNoun}
+                    {used === 1 ? "" : "s"}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="row-remove"
+                  onClick={() => remove(item.id, item.label)}
+                  disabled={used > 0}
+                  aria-label={
+                    used > 0
+                      ? `No se puede eliminar ${item.label}: en uso por ${used} ${usageNoun}${used === 1 ? "" : "s"}`
+                      : `Eliminar ${item.label}`
+                  }
+                  title={
+                    used > 0
+                      ? `No se puede eliminar: en uso por ${used} ${usageNoun}${used === 1 ? "" : "s"}`
+                      : undefined
+                  }
+                >
+                  <Icon name="trash" size={14} />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="catalog-empty">Aún no hay elementos.</p>
@@ -132,6 +157,8 @@ function CatalogPanel({
 export function SettingsView({
   technicalAreas,
   teamStatuses,
+  areaUsage,
+  statusUsage,
   onCreateArea,
   onDeleteArea,
   onCreateStatus,
@@ -139,6 +166,8 @@ export function SettingsView({
 }: {
   technicalAreas: TechnicalArea[];
   teamStatuses: TeamStatusOption[];
+  areaUsage: Record<string, number>;
+  statusUsage: Record<string, number>;
   onCreateArea: (name: string) => Promise<void>;
   onDeleteArea: (id: string, label: string) => Promise<void>;
   onCreateStatus: (type: string) => Promise<void>;
@@ -166,6 +195,8 @@ export function SettingsView({
           label="Nombre del área"
           example="Obra civil, Estructura, Instalaciones"
           items={technicalAreas.map((area) => ({ id: area.id, label: area.name }))}
+          usage={areaUsage}
+          usageNoun="tarea"
           onCreate={onCreateArea}
           onDelete={onDeleteArea}
         />
@@ -177,6 +208,8 @@ export function SettingsView({
           label="Nombre del estado"
           example="Activo, Inactivo, De baja"
           items={teamStatuses.map((status) => ({ id: status.id, label: status.type }))}
+          usage={statusUsage}
+          usageNoun="participante"
           onCreate={onCreateStatus}
           onDelete={onDeleteStatus}
         />

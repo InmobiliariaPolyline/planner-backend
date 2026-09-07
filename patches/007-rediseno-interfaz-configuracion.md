@@ -77,6 +77,22 @@ emergente con requisitos y ejemplo. Ahora el mismo trato cubre todos:
   (obligatorio, ≤ 300, sin `< >`).
 - `ValidatedField` admite `type="url"`.
 
+## No eliminar catálogos en uso (posterior)
+
+El backend ya respondía **409** al borrar un área técnica o un estado de equipo
+en uso (parche 006), pero la interfaz solo lo avisaba *después* de pulsar y no
+impedía intentarlo. Ahora:
+
+- `PlannerApp` calcula, a partir de los proyectos ya cargados, cuántas tareas
+  usan cada área y cuántos participantes tienen cada estado (`areaUsage` /
+  `statusUsage`).
+- En «Configuración» cada elemento en uso muestra una etiqueta «En uso · N
+  tarea(s) / participante(s)» y su botón de eliminar aparece **desactivado**.
+- `deleteTechnicalArea` / `deleteTeamStatus` vuelven a comprobar el uso antes de
+  llamar a la API y lanzan un mensaje claro si está en uso.
+- El **409 del backend** sigue siendo la última barrera (por si los datos en
+  pantalla estuvieran desfasados); su mensaje se muestra en el panel.
+
 ## Validación
 
 - `npx tsc --noEmit`, `npx eslint`, `npx next build`: correctos.
