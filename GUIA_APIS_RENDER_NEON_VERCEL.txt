@@ -129,36 +129,41 @@ Generacion del cliente Prisma:
 
 El build del proyecto ya ejecuta npx prisma generate antes de TypeScript.
 
-MIGRACIONES (parche 003):
+MIGRACIONES:
 
-- El archivo prisma/migrations/20260822221847_init/migration.sql ya refleja el
-  esquema real (9 tablas: Project, Task, Milestone, PerformanceMetric, DriveLink,
-  TeamMember, TeamStatus, TechnicalArea).
-- La base actual de Neon ya tiene esas tablas (se creo con prisma db push).
-  Para que Prisma la marque como migracion ya aplicada, sin volver a correr el
-  SQL, ejecutar UNA sola vez con la DATABASE_URL de Neon:
+- prisma/migrations/ contiene, en orden:
+    20260822221847_init            8 tablas base (Project, Task, Milestone,
+                                   PerformanceMetric, DriveLink, TeamMember,
+                                   TeamStatus, TechnicalArea).
+    20260906120000_add_share_links tabla ShareLink (enlaces publicos).
+    20260908120000_add_activity_events tabla ActivityEvent (historial del
+                                   expediente).
+- La base original de Neon se creo con `prisma db push`. Para que Prisma marque
+  la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
+  sola vez con la DATABASE_URL de Neon:
 
     npx prisma migrate resolve --applied 20260822221847_init
 
-- Sobre una base NUEVA y vacia, en cambio:
+- A partir de ahi, cada migracion nueva se aplica con:
 
     npx prisma migrate deploy
 
-- Render no ejecuta migrate deploy en el build (sigue siendo prisma generate +
-  tsc), asi que ningun deploy modifica la base por si solo.
+  Prisma solo ejecuta las que falten. Alternativa rapida: `npx prisma db push`.
 
-MIGRACION NUEVA — enlaces publicos (tabla ShareLink):
+- Como se aplican en produccion (segun el Build Command de Render):
+    * Con `npm run render-build` (recomendado): el deploy aplica las migraciones
+      pendientes automaticamente (render-build incluye `prisma migrate deploy`).
+    * Con `npm run build`: el deploy NO toca la base; hay que ejecutar
+      `npx prisma migrate deploy` a mano contra Neon antes o despues del deploy.
 
-- Se agrego prisma/migrations/20260906120000_add_share_links (crea la tabla
-  ShareLink para los enlaces publicos de expedientes).
-- Sobre la base de Neon existente, ejecutar UNA vez con la DATABASE_URL de Neon:
+- Si `migrate deploy` falla contra el endpoint *pooled* de Neon (host con
+  `-pooler`), ejecutarlo una vez con la conexion directa: la misma URL quitando
+  `-pooler` del host.
 
-    npx prisma migrate deploy
-
-  (Prisma vera 20260822221847_init como ya aplicada y solo creara ShareLink.)
-  Alternativa: npx prisma db push
-- Hasta que se cree la tabla, las rutas /share-links y /shared responden error;
-  el resto del sistema funciona igual.
+- Hasta que exista cada tabla, las rutas que la usan responden error y el resto
+  del sistema sigue funcionando (los enlaces publicos sin ShareLink; la pestaña
+  "Historial" sin ActivityEvent, que ademas registra los sucesos en silencio y
+  no rompe ninguna operacion).
 
 4. CONFIGURACION DE VERCEL (FRONTEND)
 --------------------------------------
@@ -203,23 +208,28 @@ Proyectos:
   PATCH  /projects/:id
   DELETE /projects/:id
 
-Cuerpo minimo de POST /projects:
+Cuerpo minimo de POST /projects (durationMonths y progress los calcula el
+backend, no se envian):
   {
     "name": "Proyecto de prueba",
     "startDate": "2026-08-27",
     "endDate": "2026-09-27",
     "budget": 1000,
-    "durationMonths": 1,
     "ownerName": "Administrador"
   }
 
+Historial del expediente:
+  GET  /projects/:projectId/activity
+
 Areas tecnicas:
-  GET  /technical-areas
-  POST /technical-areas
+  GET    /technical-areas
+  POST   /technical-areas
+  DELETE /technical-areas/:id      409 si alguna tarea la usa
 
 Estados de equipo:
-  GET  /team-statuses
-  POST /team-statuses
+  GET    /team-statuses
+  POST   /team-statuses
+  DELETE /team-statuses/:id        409 si algun participante lo usa
 
 Tareas:
   POST   /projects/:projectId/tasks
@@ -252,7 +262,9 @@ Enlaces publicos de expedientes (tabla ShareLink):
                                                   410 si el token se roto o el
                                                   expediente fue eliminado
   PATCH  /shared/:token                           edicion del expediente (rol editor)
-  PATCH  /shared/:token/tasks/:taskId             progreso de tarea (rol editor)
+  POST   /shared/:token/tasks                     crea una tarea (rol editor)
+  PATCH  /shared/:token/tasks/:taskId             edita una tarea (rol editor)
+  DELETE /shared/:token/tasks/:taskId             borra una tarea (rol editor)
 
   El token no caduca. Se accede desde el frontend:
   https://plannerbackend.vercel.app/s/<token>
@@ -289,19 +301,19 @@ Las causas mas probables son:
 7. DATOS QUE SI SE GUARDAN EN EL NAVEGADOR
 ------------------------------------------
 
-Esto es independiente de la base de datos:
+Esto es independiente de la base de datos (localStorage, por dispositivo):
 
-- project-planner-theme: guarda el tema claro/oscuro. Es normal.
-- project-planner-projects: solo deberia usarse como fallback cuando la API falla.
+- project-planner-theme: el tema claro/oscuro. Es normal.
+- project-planner-notifications: el historial de avisos de la campana.
 
-El codigo actual tambien escribe project-planner-projects al eliminar proyectos,
-incluso cuando el proyecto remoto se elimina correctamente. Eso no convierte el
-proyecto remoto en local, pero puede dejar una copia local antigua.
+Ya NO se usa project-planner-projects: el parche 001 elimino el fallback local;
+un fallo de API muestra un error y no guarda nada en el navegador. Si queda una
+clave antigua de una version previa, se puede borrar sin consecuencias.
 
-Ademas, updateProgress() solo cambia el estado React de las tareas. Actualmente no
-hace PATCH /tasks/:id, por lo que ese cambio de progreso de tarea no se persiste en
-Neon al recargar. El boton de nueva tarea tampoco tiene implementada una llamada
-POST en el frontend actual.
+El resto de los datos (proyectos, tareas, progreso, equipo, hitos, enlaces,
+historial) se persisten siempre en Neon a traves de la API. El progreso de cada
+tarea se guarda con PATCH /tasks/:id al soltar el control deslizante, y "Nueva
+tarea" hace POST /projects/:projectId/tasks.
 
 8. PRUEBA EXACTA PASO A PASO
 ----------------------------
@@ -331,7 +343,7 @@ Prueba desde PowerShell, sustituyendo la URL:
 
 Crear un proyecto desde PowerShell:
 
-  $body = @{ name = "Prueba API"; startDate = "2026-08-27"; endDate = "2026-09-27"; budget = 1000; durationMonths = 1; ownerName = "Prueba" } | ConvertTo-Json
+  $body = @{ name = "Prueba API"; startDate = "2026-08-27"; endDate = "2026-09-27"; budget = 1000; ownerName = "Prueba" } | ConvertTo-Json
   Invoke-RestMethod -Method Post -Uri "https://planner-backend-deig.onrender.com/projects" -ContentType "application/json" -Body $body
 
 9. CRITERIO FINAL DE QUE ESTA BIEN
@@ -353,9 +365,11 @@ la informacion llego a Neon: un ID LOCAL- confirma exactamente lo contrario.
 --------------------------------------
 
 1. Neon: obtener DATABASE_URL.
-2. Render: configurar DATABASE_URL y FRONTEND_ORIGIN.
+2. Render: configurar DATABASE_URL y FRONTEND_ORIGIN, y Build Command
+   `npm install && npm run render-build` (aplica las migraciones en el deploy).
 3. Render: desplegar backend.
-4. Render: ejecutar npx prisma migrate deploy si las tablas no existen.
+4. Si el Build Command es el simple (`npm run build`): ejecutar
+   `npx prisma migrate deploy` contra Neon para crear las tablas que falten.
 5. Probar GET / y GET /projects.
 6. Vercel: configurar NEXT_PUBLIC_API_URL con la URL de Render.
 7. Vercel: volver a desplegar.
