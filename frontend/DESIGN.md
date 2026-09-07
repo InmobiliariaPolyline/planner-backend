@@ -27,8 +27,9 @@ components/
                       StatCard, EmptyState, SectionHeading
   planner/
     PlannerApp.tsx        contenedor con estado y handlers (era el componente Home)
-    Screens.tsx           LoadingScreen + LoginScreen
+    Screens.tsx           LoadingScreen (logo + barra "iniciando sistema" + % ) + LoginScreen
     AppShell.tsx          sidebar + topbar + menú de notificaciones
+    UserMenu.tsx          HUD de usuario del topbar: avatar con estado + popover (cerrar sesión)
     DashboardView.tsx
     ProjectsView.tsx      toolbar de filtros + grid + ProjectCard
     ProjectDetailView.tsx resumen (métricas, equipo, hitos) + pestañas

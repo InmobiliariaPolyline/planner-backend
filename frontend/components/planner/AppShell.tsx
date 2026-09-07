@@ -5,6 +5,9 @@ import { Icon } from "@/components/ui/Icon";
 import { Avatar } from "@/components/ui/Primitives";
 import type { ActiveView, Notification, Project } from "@/lib/types";
 import type { Theme } from "@/hooks/useTheme";
+import { UserMenu } from "./UserMenu";
+
+const USER = { name: "Administrador", role: "Sesión de demostración" };
 
 type Crumb = { label: string; onClick?: () => void };
 
@@ -132,14 +135,14 @@ export function AppShell({
         </nav>
 
         <div className="sidebar-footer">
-          <Avatar name="Administrador" size="md" />
+          <span className="user-avatar-wrap">
+            <Avatar name={USER.name} size="md" />
+            <span className="user-status" aria-hidden="true" />
+          </span>
           <div>
-            <strong>Administrador</strong>
-            <span>Sesión de demostración</span>
+            <strong>{USER.name}</strong>
+            <span>En línea · demo</span>
           </div>
-          <button type="button" className="icon-btn ghost" aria-label="Cerrar sesión" onClick={onSignOut}>
-            <Icon name="logout" size={16} />
-          </button>
         </div>
       </aside>
 
@@ -178,7 +181,7 @@ export function AppShell({
             >
               <Icon name={theme === "light" ? "moon" : "sun"} size={18} />
             </button>
-            <Avatar name="Administrador" size="sm" />
+            <UserMenu name={USER.name} role={USER.role} onSignOut={onSignOut} />
           </div>
         </header>
 

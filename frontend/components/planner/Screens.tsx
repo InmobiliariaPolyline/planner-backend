@@ -1,29 +1,53 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 
 function BrandMark({ size = "md" }: { size?: "md" | "lg" }) {
   return (
     <span className={`brand-mark brand-mark-${size}`} aria-hidden="true">
-      <Icon name="target" size={size === "lg" ? 22 : 18} />
+      <Icon name="target" size={size === "lg" ? 24 : 18} />
     </span>
   );
 }
 
+const BOOT_MS = 1400;
+
 export function LoadingScreen() {
+  const [pct, setPct] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / BOOT_MS);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out
+      setPct(Math.round(eased * 100));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   return (
-    <main className="boot-screen" aria-label="Cargando Project Planner">
-      <div className="boot-brand">
+    <main className="boot" aria-label="Iniciando Project Planner">
+      <div className="boot-logo">
         <BrandMark size="lg" />
-        <div>
-          <strong>Project Planner</strong>
-          <span>Control de proyectos</span>
-        </div>
       </div>
-      <div className="boot-bar" role="progressbar" aria-label="Cargando aplicación">
-        <span />
+      <div className="boot-meta">
+        <strong>Project Planner</strong>
+        <span>Iniciando sistema…</span>
       </div>
-      <p>Preparando tu espacio de trabajo…</p>
+      <div
+        className="boot-progress"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <span className="boot-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="boot-pct">{pct}%</span>
     </main>
   );
 }

@@ -32,7 +32,8 @@ export function PlannerApp() {
   const [modal, setModal] = useState<ModalState>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setIsBooting(false), 850);
+    // Un poco más que la animación de la barra de carga (1.4 s) para que llegue a 100 %.
+    const timer = window.setTimeout(() => setIsBooting(false), 1600);
     return () => window.clearTimeout(timer);
   }, []);
 
