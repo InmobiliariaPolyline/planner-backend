@@ -335,7 +335,8 @@ export function PlannerApp() {
     return <LoginScreen projectCount={projects.length} onEnter={() => setAuthenticated(true)} />;
   }
 
-  const detailTab: "overview" | "gantt" = activeView === "gantt" ? "gantt" : "overview";
+  const detailTab: "overview" | "gantt" | "activity" =
+    activeView === "gantt" ? "gantt" : activeView === "activity" ? "activity" : "overview";
   const banner = serverWaking ? "Conectando con el servidor… (puede tardar si estaba inactivo)" : apiMessage;
 
   return (
@@ -392,7 +393,7 @@ export function PlannerApp() {
 
         {activeView === "guide" && <GuideView onNavigate={navigate} />}
 
-        {(activeView === "overview" || activeView === "gantt") && selectedProject && (
+        {(activeView === "overview" || activeView === "gantt" || activeView === "activity") && selectedProject && (
           <ProjectDetailView
             project={selectedProject}
             taskCount={selectedProject.tasks?.length ?? 0}
@@ -422,7 +423,7 @@ export function PlannerApp() {
           />
         )}
 
-        {(activeView === "overview" || activeView === "gantt") && !selectedProject && (
+        {(activeView === "overview" || activeView === "gantt" || activeView === "activity") && !selectedProject && (
           <div className="view">
             <p className="banner">Selecciona un expediente para ver su detalle.</p>
           </div>

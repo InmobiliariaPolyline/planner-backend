@@ -53,6 +53,7 @@ con un `id` de tipo UUID y llevan `createdAt` / `updatedAt`.
 | **PerformanceMetric** | «Métrica de rendimiento» | Ritmo esperado de una tarea: unidad, `ratePerDay`, `divisor` | Cuelga de una tarea |
 | **DriveLink** | «Enlace de Drive» | Un enlace (http/https) a documentación de una tarea | Cuelga de una tarea |
 | **ShareLink** | «Enlace público» | Un token para abrir un expediente sin iniciar sesión | Rol `viewer` o `editor`. El token se puede **rotar** (regenerar); no caduca |
+| **ActivityEvent** | «Historial» | Un suceso del expediente: quién hizo qué y cuándo | La API lo escribe tras cada cambio; guarda el `antes → después` de los valores editados |
 
 **Borrado en cascada:** al eliminar un expediente se borran sus tareas, hitos,
 participantes y enlaces. Al eliminar una tarea se borran sus métricas y enlaces
@@ -85,11 +86,13 @@ src/
     validation.ts       cleanText / requiredDate / requiredNumber
     projectMath.ts      monthsBetween, assertDateOrder, recomputeProjectProgress
     share.ts            tokens de enlace público, roles y errores 403/410
+    activity.ts         logEvent() + diffFields() para el historial del expediente
   generated/prisma/     cliente Prisma generado (no está en Git; se genera en cada build)
 
 prisma/
-  schema.prisma         los 9 modelos
-  migrations/           20260822221847_init · 20260906120000_add_share_links
+  schema.prisma         los 10 modelos
+  migrations/           20260822221847_init · 20260906120000_add_share_links ·
+                        20260908120000_add_activity_events
 
 scripts/
   copy-prisma-client.js copia src/generated/prisma al dist tras compilar
@@ -128,6 +131,7 @@ components/
     DashboardView.tsx      resumen general de la cartera
     ProjectsView.tsx       lista de expedientes + filtros
     ProjectDetailView.tsx  resumen del expediente (métricas, equipo, hitos) + pestañas
+    ActivityTimeline.tsx   pestaña «Historial»: línea de tiempo de sucesos del expediente
     GanttChart.tsx         cronograma con líneas de cuadrícula y marcador de «hoy»
     ProjectFormModal.tsx   alta y edición de expediente
     TaskFormModal.tsx      alta y edición de tarea + métricas + enlaces de Drive
@@ -164,6 +168,7 @@ se ocultan tras un texto genérico.
 | --- | --- | --- | --- |
 | `GET` | `/projects` | — | lista con tareas, hitos y participantes incluidos |
 | `GET` | `/projects/:id` | — | 404 si no existe |
+| `GET` | `/projects/:id/activity` | — | historial de sucesos, más reciente primero |
 | `POST` | `/projects` | `name, startDate, endDate, budget, ownerName` | calcula `durationMonths`; `progress` empieza en 0 |
 | `PATCH` | `/projects/:id` | cualquiera de los anteriores | si cambian las fechas, revalida y recalcula la duración |
 | `DELETE` | `/projects/:id` | — | borra en cascada |
@@ -190,6 +195,8 @@ se ocultan tras un texto genérico.
 | `PATCH` / `DELETE` | `/milestones/:id` | `description?, date?` |
 
 Crear, editar o borrar una tarea **recalcula el `progress` del expediente**.
+Cada operación de escritura además **deja un registro en el historial**
+(`ActivityEvent`) con el actor, un resumen y el `antes → después` de los valores.
 
 ### Métricas y enlaces de una tarea
 
@@ -309,8 +316,9 @@ Si no se define `NEXT_PUBLIC_API_URL`, el frontend asume `http://localhost:3001`
 
 Las migraciones están en `prisma/migrations/`. En producción se aplican con
 `prisma migrate deploy` (incluido en `render-build`) o ejecutándolo una vez a
-mano contra la base de Neon. Los detalles paso a paso están en
-[`GUIA_APIS_RENDER_NEON_VERCEL.txt`](GUIA_APIS_RENDER_NEON_VERCEL.txt).
+mano contra la base de Neon. **La última —`20260908120000_add_activity_events`—
+hay que aplicarla para que funcione la pestaña «Historial».** Los detalles paso
+a paso están en [`GUIA_APIS_RENDER_NEON_VERCEL.txt`](GUIA_APIS_RENDER_NEON_VERCEL.txt).
 
 ### Variables de entorno
 

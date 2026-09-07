@@ -79,6 +79,20 @@ export type Project = {
   teamMembers?: TeamMember[];
 };
 
+export type ActivityChange = { field: string; label: string; from: string; to: string };
+
+export type ActivityEvent = {
+  id: string;
+  createdAt: string;
+  actor: string;
+  action: string;
+  entity: string;
+  target: string | null;
+  summary: string;
+  tone: "neutral" | "positive" | "negative" | "warning";
+  changes: ActivityChange[] | null;
+};
+
 export type StatusFilter = "all" | "active" | "completed";
 export type SortOrder = "recent" | "name" | "progress";
 export type GanttMode = "month" | "week";
@@ -87,6 +101,7 @@ export type ActiveView =
   | "projects"
   | "overview"
   | "gantt"
+  | "activity"
   | "settings"
   | "guide";
 

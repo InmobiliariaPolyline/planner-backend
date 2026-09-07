@@ -80,6 +80,22 @@ export function relativeTime(from: number, now = Date.now()): string {
   return `hace ${days} d`;
 }
 
+/** Fecha y hora local legible: "7 sep 2026, 14:32". */
+export function dateTime(iso: string): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date
+    .toLocaleString("es-MX", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    .replace(".", "");
+}
+
 export function fallbackRange(): [number, number] {
   const start = Date.parse("2026-01-01T00:00:00Z");
   return [start, start + 28 * DAY_MS];

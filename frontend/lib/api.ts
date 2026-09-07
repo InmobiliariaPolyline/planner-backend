@@ -2,6 +2,7 @@
 // manejo de respuestas.
 
 import type {
+  ActivityEvent,
   DriveLink,
   Milestone,
   PerformanceMetric,
@@ -82,6 +83,11 @@ export const api = {
     request<Project>(`/projects/${id}`, { method: "PATCH", body: json(data), failMessage: "No fue posible actualizar el expediente" }),
   deleteProject: (id: string) =>
     request<void>(`/projects/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar el expediente" }),
+  listActivity: (projectId: string) =>
+    request<ActivityEvent[]>(`/projects/${projectId}/activity`, {
+      retry: true,
+      failMessage: "No fue posible cargar el historial",
+    }),
 
   // Catálogos
   listTeamStatuses: () => request<{ id: string; type: string }[]>("/team-statuses", { failMessage: "No fue posible cargar los estados de equipo" }),

@@ -30,10 +30,37 @@ model Project {
   ownerName  String
 
   // Relaciones
-  tasks       Task[]
-  milestones  Milestone[]
-  teamMembers TeamMember[]
-  shareLinks  ShareLink[]
+  tasks          Task[]
+  milestones     Milestone[]
+  teamMembers    TeamMember[]
+  shareLinks     ShareLink[]
+  activityEvents ActivityEvent[]
+}
+
+/// Historial de sucesos de un expediente: creación, cambios de valor, borrados…
+/// Se escribe desde la API tras cada operación de escritura y se borra en
+/// cascada con el expediente. `actor` hoy es "Administrador" o
+/// "Colaborador (enlace)"; queda listo para un usuario real más adelante.
+model ActivityEvent {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  actor     String
+  /// Código de acción: "project.create", "task.update", "member.remove", …
+  action    String
+  /// Entidad afectada, en texto: "expediente", "tarea", "participante", …
+  entity    String
+  /// Nombre de lo afectado (título de la tarea, del participante…), si aplica.
+  target    String?
+  /// Frase legible del suceso.
+  summary   String
+  /// Tono para la interfaz: "neutral" | "positive" | "negative" | "warning".
+  tone      String   @default("neutral")
+  /// Cambios de valor en ediciones: [{ field, label, from, to }].
+  changes   Json?
+
+  @@index([projectId, createdAt])
 }
 
 /// Enlace público para acceder a un expediente sin iniciar sesión.

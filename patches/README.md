@@ -36,6 +36,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   paso con figuras), «x» para descartar notificaciones sueltas, validación de
   formularios que ya no marca en rojo los campos vacíos hasta enviar, e iconos
   de navegación revisados («Catálogos» en vez de engranaje).
+- `009-historial-de-expediente.md`: tabla `ActivityEvent` + pestaña «Historial»
+  con la línea de tiempo de todos los sucesos del expediente (creación,
+  cambios de valor con antes→después, altas y bajas). **Requiere aplicar la
+  migración `20260908120000_add_activity_events` a Neon.**
 
 ## Cambios mayores (no son parches)
 

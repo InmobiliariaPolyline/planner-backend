@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Avatar, Badge, EmptyState, StatCard } from "@/components/ui/Primitives";
 import { currency, dateRange, isoDay } from "@/lib/format";
 import type { Milestone, Project } from "@/lib/types";
+import { ActivityTimeline } from "./ActivityTimeline";
 
 export function ProjectDetailView({
   project,
@@ -25,9 +26,9 @@ export function ProjectDetailView({
 }: {
   project: Project;
   taskCount: number;
-  activeTab: "overview" | "gantt";
+  activeTab: "overview" | "gantt" | "activity";
   banner: string;
-  onTab: (tab: "overview" | "gantt") => void;
+  onTab: (tab: "overview" | "gantt" | "activity") => void;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -97,9 +98,23 @@ export function ProjectDetailView({
         >
           Cronograma Gantt <span className="count">{taskCount}</span>
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "activity"}
+          className={activeTab === "activity" ? "tab is-active" : "tab"}
+          onClick={() => onTab("activity")}
+        >
+          Historial
+        </button>
       </div>
 
-      {activeTab === "overview" ? (
+      {activeTab === "activity" ? (
+        <ActivityTimeline
+          projectId={project.id}
+          reloadKey={members.length + milestones.length + taskCount}
+        />
+      ) : activeTab === "overview" ? (
         <>
           <div className="stat-grid">
             <StatCard

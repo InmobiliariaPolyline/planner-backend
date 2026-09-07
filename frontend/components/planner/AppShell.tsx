@@ -24,7 +24,10 @@ function buildCrumbs(
   const crumbs: Crumb[] = [{ label: "Mis expedientes", onClick: () => onNavigate("projects") }];
   if (selectedProject) {
     crumbs.push({ label: selectedProject.name, onClick: () => onNavigate("overview") });
-    crumbs.push({ label: activeView === "gantt" ? "Cronograma" : "Resumen" });
+    crumbs.push({
+      label:
+        activeView === "gantt" ? "Cronograma" : activeView === "activity" ? "Historial" : "Resumen",
+    });
   }
   return crumbs;
 }
