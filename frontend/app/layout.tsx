@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 // Fija data-theme antes de pintar para evitar el parpadeo claro→oscuro al cargar.
 const themeScript = `try{var t=localStorage.getItem('project-planner-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}`;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="es"

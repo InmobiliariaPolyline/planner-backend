@@ -34,7 +34,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx eslint
-      - run: npx tsc --noEmit
+      # next build hace su propia comprobación de TypeScript y genera los tipos
+      # (LayoutProps, etc.), así que cubre el `tsc --noEmit`.
       - run: npx next build
         env:
           NEXT_PUBLIC_API_URL: https://planner-backend-deig.onrender.com
