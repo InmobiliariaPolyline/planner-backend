@@ -3,7 +3,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma';
 
 const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
+// max acotado: Render free tiene poca memoria y Neon limita conexiones simultáneas
+export const pool = new Pool({ connectionString, max: 5 });
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });

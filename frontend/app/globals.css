@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Estilos adicionales: los @import deben ir antes que cualquier otra regla CSS */
+@import "./globals-extensions.css";
 
 /* ============================================================
    SISTEMA DE VARIABLES - TIPOGRAFÍA, COLORES, ESPACIADO
@@ -1203,7 +1205,4 @@ label {
   }
 }
 
-/* ============================================================
-   IMPORTACIÓN DE ESTILOS ADICIONALES
-   ============================================================ */
-@import "./globals-extensions.css";
+/* Los estilos adicionales se importan al inicio del archivo (regla CSS @import). */

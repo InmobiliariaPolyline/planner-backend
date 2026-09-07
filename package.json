@@ -28,11 +28,10 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.2.0",
+    "@types/node": "^20.19.9",
     "@types/pg": "^8.23.1",
     "prisma": "^7.9.1",
-    "ts-node": "^10.9.2",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2"
+    "typescript": "~5.9.2"
   }
 }

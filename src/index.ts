@@ -1,12 +1,17 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { prisma, projectInclude } from './lib/prisma';
+import { prisma, pool, projectInclude } from './lib/prisma';
 import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 
 const app = express();
+
+// Render (y cualquier PaaS) sirve la app detrás de un proxy inverso. Sin esto,
+// express-rate-limit toma la IP del proxy para todos y el cupo se comparte entre
+// todos los usuarios.
+app.set('trust proxy', 1);
 
 app.use(helmet());
 const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000,https://plannerbackend.vercel.app').split(',').map((origin) => origin.trim());
@@ -15,7 +20,9 @@ app.use(cors({ origin: (origin, callback) => {
     callback(null, true);
     return;
   }
-  callback(new Error('Origen no autorizado'));
+  // Sin excepción: el navegador bloquea la respuesta por falta de cabeceras CORS
+  // y la API no devuelve un 500 con stack.
+  callback(null, false);
 } }));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false }));
 app.use(express.json({ limit: '10kb' }));
@@ -26,6 +33,11 @@ app.get('/', (req: Request, res: Response) => {
     mensaje: "¡El servidor de Project Planner está funcionando!",
     estado: "Activo"
   });
+});
+
+// Health check ligero para Render / monitoreo
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ ok: true });
 });
 
 app.get('/projects', async (req: Request, res: Response) => {
@@ -154,8 +166,7 @@ app.post('/projects/:projectId/milestones', async (req: Request, res: Response) 
     });
     res.status(201).json(milestone);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al crear el hito' });
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el hito' });
   }
 });
 
@@ -181,21 +192,20 @@ app.patch('/tasks/:id', async (req: Request, res: Response) => {
     const task = await prisma.task.update({
       where: { id: taskId },
       data: {
-        ...(name !== undefined && { name }),
-        ...(startDate !== undefined && { startDate: new Date(startDate) }),
-        ...(endDate !== undefined && { endDate: new Date(endDate) }),
+        ...(name !== undefined && { name: cleanText(name, 'name') }),
+        ...(startDate !== undefined && { startDate: requiredDate(startDate, 'startDate') }),
+        ...(endDate !== undefined && { endDate: requiredDate(endDate, 'endDate') }),
         ...(progress !== undefined && { progress: requiredNumber(progress, 'progress', 0, 100) }),
         ...(dependency !== undefined && { dependency: cleanText(dependency, 'dependency', false) }),
         ...(ownerName !== undefined && { ownerName: cleanText(ownerName, 'ownerName') }),
         ...(isPhase !== undefined && { isPhase: Boolean(isPhase) }),
-        ...(technicalAreaId !== undefined && { technicalAreaId })
+        ...(technicalAreaId !== undefined && { technicalAreaId: cleanText(technicalAreaId, 'technicalAreaId') })
       },
       include: { technicalArea: true, performanceMetrics: true, driveLinks: true }
     });
     res.json(task);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al actualizar la tarea' });
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar la tarea' });
   }
 });
 
@@ -226,8 +236,29 @@ app.delete('/drive-links/:id', async (req, res) => {
   catch (_error) { res.status(404).json({ error: 'Enlace no encontrado' }); }
 });
 
+// 404 en JSON para rutas no registradas
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Ruta no encontrada' });
+});
+
+// Manejador de errores final: responde JSON en vez de HTML con stack
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(error);
+  res.status(500).json({ error: 'Error interno del servidor' });
+});
+
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Servidor ejecutándose en el puerto ${PORT}`);
 });
+
+// Cierre ordenado cuando Render envía SIGTERM en cada redeploy
+async function shutdown() {
+  server.close(async () => {
+    await pool.end().catch(() => undefined);
+    process.exit(0);
+  });
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

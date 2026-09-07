@@ -129,16 +129,28 @@ En Neon:
 Desde el repositorio, Prisma usa DATABASE_URL en prisma.config.ts y el backend
 usa la misma variable al crear el Pool de PostgreSQL.
 
-Migracion inicial, ejecutada desde un entorno que tenga DATABASE_URL configurada:
-  npx prisma migrate deploy
-
 Generacion del cliente Prisma:
   npx prisma generate
 
 El build del proyecto ya ejecuta npx prisma generate antes de TypeScript.
-En Render conviene ejecutar la migracion antes de probar POST/ PATCH. La migracion
-crea las tablas Project, Task, Milestone, PerformanceMetric, DriveLink,
-TeamMember, TeamStatus y TechnicalArea.
+
+MIGRACIONES (parche 003):
+
+- El archivo prisma/migrations/20260822221847_init/migration.sql ya refleja el
+  esquema real (9 tablas: Project, Task, Milestone, PerformanceMetric, DriveLink,
+  TeamMember, TeamStatus, TechnicalArea).
+- La base actual de Neon ya tiene esas tablas (se creo con prisma db push).
+  Para que Prisma la marque como migracion ya aplicada, sin volver a correr el
+  SQL, ejecutar UNA sola vez con la DATABASE_URL de Neon:
+
+    npx prisma migrate resolve --applied 20260822221847_init
+
+- Sobre una base NUEVA y vacia, en cambio:
+
+    npx prisma migrate deploy
+
+- Render no ejecuta migrate deploy en el build (sigue siendo prisma generate +
+  tsc), asi que ningun deploy modifica la base por si solo.
 
 4. CONFIGURACION DE VERCEL (FRONTEND)
 --------------------------------------

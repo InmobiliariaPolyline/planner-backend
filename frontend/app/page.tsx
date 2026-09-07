@@ -8,6 +8,8 @@ type Task = {
   owner: string;
   start: string;
   end: string;
+  startISO: string;
+  endISO: string;
   progress: number;
   phase?: boolean;
   dependency?: string;
@@ -40,18 +42,25 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const themeKey = "project-planner-theme";
 let createTaskHandler: (() => void) | undefined;
 
-const timelineStart = new Date("2026-06-03T00:00:00");
-const timelineEnd = new Date("2026-06-28T00:00:00");
-const monthNumbers: Record<string, number> = { Ene: 0, Feb: 1, Mar: 2, Abr: 3, May: 4, Jun: 5, Jul: 6, Ago: 7, Sep: 8, Oct: 9, Nov: 10, Dic: 11 };
+function toISO(value: unknown): string {
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
 
-function getBarStyle(task: Task) {
-  const [startDay, startMonth] = task.start.split(" ");
-  const [endDay, endMonth] = task.end.split(" ");
-  const start = new Date(2026, monthNumbers[startMonth], Number(startDay));
-  const end = new Date(2026, monthNumbers[endMonth], Number(endDay));
-  const total = timelineEnd.getTime() - timelineStart.getTime();
-  const left = Math.max(0, Math.min(100, ((start.getTime() - timelineStart.getTime()) / total) * 100));
-  const width = Math.max(5, Math.min(100 - left, ((end.getTime() - start.getTime()) / total) * 100 + 5));
+function shortDate(iso: string): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", "");
+}
+
+// Geometría de la barra del Gantt calculada sobre el rango real de las tareas
+// (antes usaba un timeline fijo de junio 2026 y un mapeo de meses que fallaba).
+function getBarStyle(task: Task, rangeStart: number, rangeEnd: number) {
+  const start = new Date(task.startISO).getTime();
+  const end = new Date(task.endISO).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return { left: "0%", width: "0%" };
+  const total = rangeEnd - rangeStart || 1;
+  const left = Math.max(0, Math.min(100, ((start - rangeStart) / total) * 100));
+  const width = Math.max(2, Math.min(100 - left, ((end - start) / total) * 100));
   return { left: `${left}%`, width: `${width}%` };
 }
 
@@ -60,8 +69,10 @@ function normalizeTasks(tasks: Array<Record<string, unknown>> = []): Task[] {
     id: String(task.id ?? index + 1),
     name: String(task.name ?? "Tarea sin nombre"),
     owner: String(task.ownerName ?? "Sin responsable"),
-    start: new Date(String(task.startDate)).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", ""),
-    end: new Date(String(task.endDate)).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", ""),
+    startISO: toISO(task.startDate),
+    endISO: toISO(task.endDate),
+    start: shortDate(toISO(task.startDate)),
+    end: shortDate(toISO(task.endDate)),
     progress: Number(task.progress ?? 0),
     phase: Boolean(task.isPhase),
     dependency: String(task.dependency ?? ""),
@@ -257,12 +268,14 @@ export default function Home() {
   }, [selectedProject]);
 
   async function updateProgress(id: string, progress: number) {
+    const previousProgress = tasks.find((task) => task.id === id)?.progress ?? 0;
     setTasks((current) => current.map((task) => task.id === id ? { ...task, progress } : task));
     try {
       const response = await fetch(`${apiUrl}/tasks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ progress }) });
       if (!response.ok) throw new Error("No fue posible guardar el progreso");
       addNotification(`Progreso actualizado a ${progress}%.`);
     } catch (error) {
+      setTasks((current) => current.map((task) => task.id === id ? { ...task, progress: previousProgress } : task));
       setApiMessage(error instanceof Error ? error.message : "No fue posible guardar el progreso");
     }
   }
@@ -399,5 +412,13 @@ function Gantt({ tasks, editingTask, setEditingTask, updateProgress, mode, setMo
       viewButton.removeEventListener("click", handleViewChange);
     };
   }, [mode, setMode]);
-  return <section className="gantt-panel"><div className="gantt-header"><div><p className="eyebrow dark-eyebrow">PLANIFICACIÓN DETALLADA</p><h2>Cronograma de ejecución</h2><p className="muted">Haz clic en cualquier tarea para modificar su progreso o responsable.</p></div><div><button className="secondary-button">⊞ Vista: Mes</button><button className="small-action">＋ Nueva tarea</button></div></div><div className="gantt-tools"><span>{tasks.length} elementos · {tasks.filter((task) => task.phase).length} fases</span><span className="legend"><i className="legend-dot complete" /> Completada <i className="legend-dot current" /> En curso <i className="legend-dot delayed" /> Atención</span></div><div className="gantt-table"><div className="task-head"><span>TAREA / FASE</span><span>RESPONSABLE / ÁREA</span><span>FECHAS / DEP.</span><span>PROGRESO</span><div className="timeline-head"><span>03 JUN</span><span>10 JUN</span><span>17 JUN</span><span>24 JUN</span></div></div>{tasks.map((task) => <div className={task.phase ? "task-row phase-row" : "task-row"} key={task.id} onClick={() => !task.phase && setEditingTask(editingTask === task.id ? null : task.id)}><div className="task-name"><span className="drag">⠿</span><span className="task-number">{task.id}</span><strong>{task.name}</strong></div><span className="owner"><span className="avatar mini">{task.owner.split(" ").map((part) => part[0]).join("")}</span><span>{task.owner}<small>{task.technicalArea} · {task.metrics} métricas · {task.driveLinks} Drive</small></span></span><span className="dates">{task.start}<br />{task.end}<small>Depende de: {task.dependency ?? "—"}</small></span><div className="task-progress"><strong>{task.progress}%</strong><div className="progress-track"><i style={{ width: `${task.progress}%` }} /></div></div><div className="timeline"><div className={`gantt-bar ${task.progress === 100 ? "complete" : task.progress < 30 ? "delayed" : "current"}`} style={getBarStyle(task)}>{task.phase && <span>FASE</span>}</div></div>{editingTask === task.id && <div className="edit-popover"><strong>Modificando tarea</strong><label>Progreso <input type="range" min="0" max="100" value={task.progress} onChange={(event) => updateProgress(task.id, Number(event.target.value))} /></label><span>{task.progress}% completado</span></div>}</div>)}</div></section>;
+  const times = tasks.flatMap((task) => [new Date(task.startISO).getTime(), new Date(task.endISO).getTime()]).filter((value) => Number.isFinite(value));
+  const fallbackStart = Date.parse("2026-01-01T00:00:00Z");
+  const rangeStart = times.length ? Math.min(...times) : fallbackStart;
+  const rangeEnd = times.length ? Math.max(...times) : fallbackStart + 2_419_200_000;
+  const timelineColumns = Array.from({ length: 4 }, (_, index) => {
+    const time = rangeStart + ((rangeEnd - rangeStart) * index) / 3;
+    return new Date(time).toLocaleDateString("es-MX", { day: "2-digit", month: "short" }).replace(".", "").toUpperCase();
+  });
+  return <section className="gantt-panel"><div className="gantt-header"><div><p className="eyebrow dark-eyebrow">PLANIFICACIÓN DETALLADA</p><h2>Cronograma de ejecución</h2><p className="muted">Haz clic en cualquier tarea para modificar su progreso o responsable.</p></div><div><button className="secondary-button">⊞ Vista: Mes</button><button className="small-action">＋ Nueva tarea</button></div></div><div className="gantt-tools"><span>{tasks.length} elementos · {tasks.filter((task) => task.phase).length} fases</span><span className="legend"><i className="legend-dot complete" /> Completada <i className="legend-dot current" /> En curso <i className="legend-dot delayed" /> Atención</span></div><div className="gantt-table"><div className="task-head"><span>TAREA / FASE</span><span>RESPONSABLE / ÁREA</span><span>FECHAS / DEP.</span><span>PROGRESO</span><div className="timeline-head">{timelineColumns.map((label, index) => <span key={index}>{label}</span>)}</div></div>{tasks.map((task) => <div className={task.phase ? "task-row phase-row" : "task-row"} key={task.id} onClick={() => !task.phase && setEditingTask(editingTask === task.id ? null : task.id)}><div className="task-name"><span className="drag">⠿</span><span className="task-number">{task.id}</span><strong>{task.name}</strong></div><span className="owner"><span className="avatar mini">{task.owner.split(" ").map((part) => part[0]).join("")}</span><span>{task.owner}<small>{task.technicalArea} · {task.metrics} métricas · {task.driveLinks} Drive</small></span></span><span className="dates">{task.start}<br />{task.end}<small>Depende de: {task.dependency ?? "—"}</small></span><div className="task-progress"><strong>{task.progress}%</strong><div className="progress-track"><i style={{ width: `${task.progress}%` }} /></div></div><div className="timeline"><div className={`gantt-bar ${task.progress === 100 ? "complete" : task.progress < 30 ? "delayed" : "current"}`} style={getBarStyle(task, rangeStart, rangeEnd)}>{task.phase && <span>FASE</span>}</div></div>{editingTask === task.id && <div className="edit-popover"><strong>Modificando tarea</strong><label>Progreso <input type="range" min="0" max="100" value={task.progress} onChange={(event) => updateProgress(task.id, Number(event.target.value))} /></label><span>{task.progress}% completado</span></div>}</div>)}</div></section>;
 }
