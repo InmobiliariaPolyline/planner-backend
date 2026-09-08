@@ -1065,32 +1065,6 @@ input:disabled {
   border-radius: var(--radius-pill);
   background: var(--accent);
 }
-.sidebar-footer {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-top: 1px solid var(--border);
-}
-.sidebar-footer > div strong {
-  display: block;
-  font-size: var(--text-sm);
-}
-.sidebar-footer > div span {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-.sidebar-footer > div {
-  min-width: 0;
-  flex: 1;
-}
-.sidebar-footer > div strong,
-.sidebar-footer > div span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .main {
   display: flex;
@@ -3236,10 +3210,10 @@ input:disabled {
   color: var(--text-muted);
   flex-shrink: 0;
 }
-/* Cambio numérico (dinero, avance): el color del valor NUEVO indica la
-   dirección — verde si sube, rojo si baja; el valor anterior queda neutro. */
-.activity-changes li.dir-up .activity-change-from,
-.activity-changes li.dir-down .activity-change-from {
+/* Cambio numérico (dinero, avance): el valor MAYOR se pinta en verde.
+   - Al subir: el nuevo es el mayor (verde); el anterior queda neutro.
+   - Al bajar: el anterior era el mayor (verde); el nuevo, por reducirse, va en rojo. */
+.activity-changes li.dir-up .activity-change-from {
   background: var(--surface-3);
   color: var(--text-muted);
   text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
@@ -3247,6 +3221,11 @@ input:disabled {
 .activity-changes li.dir-up .activity-change-to {
   background: var(--success-subtle);
   color: var(--success-on-subtle);
+}
+.activity-changes li.dir-down .activity-change-from {
+  background: var(--success-subtle);
+  color: var(--success-on-subtle);
+  text-decoration-color: color-mix(in srgb, var(--success) 55%, transparent);
 }
 .activity-changes li.dir-down .activity-change-to {
   background: var(--danger-subtle);
@@ -3352,8 +3331,7 @@ input:disabled {
   }
   .sidebar-brand > div,
   .sidebar-label,
-  .nav-label,
-  .sidebar-footer > div {
+  .nav-label {
     display: none;
   }
   .sidebar-brand {
@@ -3367,10 +3345,6 @@ input:disabled {
     justify-content: center;
     gap: 0;
     padding: var(--space-3) 0;
-  }
-  .sidebar-footer {
-    justify-content: center;
-    padding: var(--space-3) 0 0;
   }
   .dashboard-grid {
     grid-template-columns: 1fr;

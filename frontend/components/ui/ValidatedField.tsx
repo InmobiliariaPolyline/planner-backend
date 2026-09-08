@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { formatMoney, parseMoney } from "@/lib/money";
 import { Icon } from "./Icon";
 
 export type Rule = {
@@ -29,6 +30,7 @@ export function ValidatedField({
   showErrors = false,
   placement = "bottom",
   align = "left",
+  money = false,
 }: {
   label: string;
   example: string;
@@ -44,6 +46,8 @@ export function ValidatedField({
   showErrors?: boolean;
   placement?: "top" | "bottom";
   align?: "left" | "right";
+  /** Campo de importe: acepta separadores de miles/decimales y se formatea al salir. */
+  money?: boolean;
 }) {
   const id = useId();
   const [touched, setTouched] = useState(false);
@@ -73,9 +77,9 @@ export function ValidatedField({
       <div className="vfield-control">
         <input
           id={id}
-          type={type}
+          type={money ? "text" : type}
           value={value}
-          inputMode={inputMode}
+          inputMode={money ? "decimal" : inputMode}
           min={min}
           step={step}
           placeholder={placeholder}
@@ -89,6 +93,9 @@ export function ValidatedField({
           onBlur={() => {
             setFocused(false);
             setTouched(true);
+            if (money && value.trim() && parseMoney(value) !== null) {
+              onChange(formatMoney(value));
+            }
           }}
         />
         {errorVisible && (

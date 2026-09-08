@@ -26,7 +26,7 @@ import { GuideView } from "./GuideView";
 import { MemberFormModal } from "./MemberFormModal";
 import { MilestoneFormModal } from "./MilestoneFormModal";
 import { ProjectDetailView } from "./ProjectDetailView";
-import { ProjectFormModal, projectToForm } from "./ProjectFormModal";
+import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
 import { SettingsView } from "./SettingsView";
@@ -221,7 +221,7 @@ export function PlannerApp() {
       name: values.name.trim(),
       startDate: values.startDate,
       endDate: values.endDate,
-      budget: Number(values.budget),
+      budget: budgetToNumber(values.budget),
       ownerName: values.ownerName.trim(),
     });
     setProjects((current) => [project, ...current]);
@@ -238,7 +238,7 @@ export function PlannerApp() {
       name: values.name.trim(),
       startDate: values.startDate,
       endDate: values.endDate,
-      budget: Number(values.budget),
+      budget: budgetToNumber(values.budget),
       ownerName: values.ownerName.trim(),
     });
     setProjectEverywhere(project);

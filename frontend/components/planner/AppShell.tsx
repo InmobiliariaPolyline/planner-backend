@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { Avatar } from "@/components/ui/Primitives";
 import { relativeTime } from "@/lib/format";
 import type { ActiveView, Notification, Project } from "@/lib/types";
 import type { Theme } from "@/hooks/useTheme";
@@ -164,17 +163,6 @@ export function AppShell({
             );
           })}
         </nav>
-
-        <div className="sidebar-footer">
-          <span className="user-avatar-wrap">
-            <Avatar name={USER.name} size="md" />
-            <span className="user-status" aria-hidden="true" />
-          </span>
-          <div>
-            <strong>{USER.name}</strong>
-            <span>En línea · demo</span>
-          </div>
-        </div>
       </aside>
 
       <div className="main">

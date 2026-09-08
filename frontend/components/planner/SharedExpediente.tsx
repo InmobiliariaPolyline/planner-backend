@@ -19,7 +19,7 @@ import type {
   TechnicalArea,
 } from "@/lib/types";
 import { GanttChart } from "./GanttChart";
-import { ProjectFormModal, projectToForm } from "./ProjectFormModal";
+import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { TaskFormModal } from "./TaskFormModal";
 
 type Modal = null | { kind: "project" } | { kind: "taskCreate" } | { kind: "taskEdit"; task: TaskDetail } | { kind: "taskDelete"; task: Task };
@@ -53,7 +53,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
       name: values.name.trim(),
       startDate: values.startDate,
       endDate: values.endDate,
-      budget: Number(values.budget),
+      budget: budgetToNumber(values.budget),
       ownerName: values.ownerName.trim(),
     });
     setProject(updated);

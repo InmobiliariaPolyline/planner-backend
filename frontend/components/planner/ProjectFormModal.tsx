@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
+import { formatMoney, parseMoney } from "@/lib/money";
 import type { Project, ProjectFormValues } from "@/lib/types";
 
 const EMPTY: ProjectFormValues = {
@@ -20,15 +21,19 @@ export function projectToForm(project: Project): ProjectFormValues {
     startDate: project.startDate.slice(0, 10),
     endDate: project.endDate.slice(0, 10),
     ownerName: project.ownerName,
-    budget: String(project.budget),
+    budget: formatMoney(project.budget),
   };
+}
+
+/** Importe del formulario -> número para el backend. */
+export function budgetToNumber(value: string): number {
+  return parseMoney(value) ?? 0;
 }
 
 const notEmpty = (v: string) => v.trim().length > 0;
 const maxLen = (v: string) => v.trim().length <= 300;
 const noAngles = (v: string) => !/[<>]/.test(v);
 const validDate = (v: string) => v === "" || !Number.isNaN(Date.parse(v));
-const isNumber = (v: string) => v.trim() === "" || Number.isFinite(Number(v));
 
 function textRules(): Rule[] {
   return [
@@ -77,8 +82,8 @@ export function ProjectFormModal({
       ],
       budget: [
         { label: "Obligatorio", test: notEmpty },
-        { label: "Solo números", test: isNumber },
-        { label: "Mayor o igual a 0", test: (v) => v.trim() === "" || Number(v) >= 0 },
+        { label: "Importe válido (admite 15.000 o 15.000,50)", test: (v) => v.trim() === "" || parseMoney(v) !== null },
+        { label: "Mayor o igual a 0", test: (v) => v.trim() === "" || (parseMoney(v) ?? -1) >= 0 },
       ],
     }),
     [values.startDate],
@@ -156,10 +161,8 @@ export function ProjectFormModal({
         />
         <ValidatedField
           label="Presupuesto oficial"
-          type="number"
-          inputMode="decimal"
-          min="0"
-          example="4850000"
+          money
+          example="4.850.000 · también 15.000,50"
           rules={rules.budget}
           value={values.budget}
           onChange={set("budget")}
