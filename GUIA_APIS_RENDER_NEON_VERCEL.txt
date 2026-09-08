@@ -312,7 +312,8 @@ clave antigua de una version previa, se puede borrar sin consecuencias.
 
 El resto de los datos (proyectos, tareas, progreso, equipo, hitos, enlaces,
 historial) se persisten siempre en Neon a traves de la API. El progreso de cada
-tarea se guarda con PATCH /tasks/:id al soltar el control deslizante, y "Nueva
+tarea se guarda con PATCH /tasks/:id al pulsar "Guardar avance" y confirmar
+(mover el control deslizante no escribe nada, para no llenar el historial), y "Nueva
 tarea" hace POST /projects/:projectId/tasks.
 
 8. PRUEBA EXACTA PASO A PASO

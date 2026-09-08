@@ -112,7 +112,7 @@ function ProgressShot() {
           <span className="gs-progress-fill" style={{ width: "45%" }} />
           <span className="gs-progress-knob" style={{ left: "45%" }} />
         </span>
-        <p className="gs-progress-note">Arrastra y suelta: el avance se guarda al soltar.</p>
+        <p className="gs-progress-note">Ajusta y pulsa «Guardar avance»; se pide confirmación.</p>
       </div>
     </Shot>
   );
@@ -240,9 +240,10 @@ const SECTIONS: Section[] = [
     intro: "El progreso se lleva tarea por tarea; el porcentaje del expediente es el promedio.",
     steps: [
       { do: "En el Gantt, pulsa una tarea para abrir su control de progreso." },
+      { do: "Mueve el deslizante hasta el valor que quieras (todavía no se guarda nada)." },
       {
-        do: "Arrastra el deslizante y suéltalo.",
-        result: "El avance se guarda y el % del expediente se recalcula.",
+        do: "Pulsa «Guardar avance» y confirma.",
+        result: "El avance se guarda, se registra en el historial y el % del expediente se recalcula.",
       },
     ],
     figure: <ProgressShot />,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, EmptyState, ProgressBar } from "@/components/ui/Primitives";
 import { fallbackRange, timelineColumns } from "@/lib/format";
@@ -13,7 +13,12 @@ function barTone(progress: number): "success" | "warning" | "accent" {
   return "accent";
 }
 
-/** Slider de progreso con estado local: solo persiste cuando dejas de mover. */
+/**
+ * Slider de progreso. Mover el control NO guarda nada: solo cambia el valor en
+ * pantalla. El cambio se persiste (y aparece en el historial) al pulsar
+ * «Guardar avance», que abre una confirmación. Así el historial no se llena con
+ * cada micro-ajuste.
+ */
 function ProgressEditor({
   task,
   onCommit,
@@ -21,29 +26,8 @@ function ProgressEditor({
   task: Task;
   onCommit: (progress: number) => void;
 }) {
-  // El editor se monta al abrir la fila, así que arranca con el progreso actual;
-  // mientras está abierto, el valor local manda.
   const [value, setValue] = useState(task.progress);
-  const committed = useRef(task.progress);
-  const timer = useRef<number | undefined>(undefined);
-
-  const scheduleCommit = (next: number) => {
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => {
-      if (committed.current !== next) {
-        committed.current = next;
-        onCommit(next);
-      }
-    }, 500);
-  };
-
-  const commitNow = () => {
-    window.clearTimeout(timer.current);
-    if (committed.current !== value) {
-      committed.current = value;
-      onCommit(value);
-    }
-  };
+  const dirty = value !== task.progress;
 
   return (
     <div className="gantt-edit">
@@ -53,16 +37,18 @@ function ProgressEditor({
         min={0}
         max={100}
         value={value}
-        onChange={(event) => {
-          const next = Number(event.target.value);
-          setValue(next);
-          scheduleCommit(next);
-        }}
-        onPointerUp={commitNow}
-        onBlur={commitNow}
+        onChange={(event) => setValue(Number(event.target.value))}
         aria-label={`Progreso de ${task.name}`}
       />
       <span>{value}% completado</span>
+      <button
+        type="button"
+        className="btn btn-primary btn-sm"
+        disabled={!dirty}
+        onClick={() => onCommit(value)}
+      >
+        {dirty ? "Guardar avance" : "Sin cambios"}
+      </button>
     </div>
   );
 }

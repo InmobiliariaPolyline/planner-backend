@@ -43,7 +43,14 @@ type Modal =
   | { kind: "member" }
   | { kind: "milestoneCreate" }
   | { kind: "milestoneEdit"; milestone: Milestone }
-  | { kind: "confirm"; title: string; message: string; confirmLabel: string; onConfirm: () => Promise<void> };
+  | {
+      kind: "confirm";
+      title: string;
+      message: string;
+      confirmLabel: string;
+      tone?: "danger" | "accent";
+      onConfirm: () => Promise<void>;
+    };
 
 export function PlannerApp() {
   const { theme, toggleTheme } = useTheme();
@@ -353,19 +360,39 @@ export function PlannerApp() {
     if (raw) setModal({ kind: "taskEdit", task: toTaskDetail(raw as RawTask) });
   }
 
-  async function commitProgress(id: string, progress: number) {
-    const previous = tasks.find((task) => task.id === id)?.progress ?? 0;
-    setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress } : task)));
-    try {
-      await api.updateTaskProgress(id, progress);
-      if (selectedProject) {
-        void refreshProject(selectedProject.id);
-        void syncActivity(selectedProject.id);
-      }
-    } catch (error) {
-      setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress: previous } : task)));
-      setApiMessage(error instanceof Error ? error.message : "No fue posible guardar el progreso");
-    }
+  // Mover el slider no guarda nada; al pulsar «Guardar avance» se pide
+  // confirmación y sólo entonces se persiste y se registra en el historial.
+  function askCommitProgress(id: string, progress: number) {
+    if (!selectedProject) return;
+    const task = tasks.find((item) => item.id === id);
+    const previous = task?.progress ?? 0;
+    if (previous === progress) return;
+    const projectId = selectedProject.id;
+    const name = task?.name ?? "la tarea";
+    setModal({
+      kind: "confirm",
+      title: "Guardar avance",
+      message: `El avance de «${name}» pasará de ${previous}% a ${progress}%. Quedará registrado en el historial del expediente.`,
+      confirmLabel: "Guardar avance",
+      tone: "accent",
+      onConfirm: async () => {
+        setTasks((current) =>
+          current.map((item) => (item.id === id ? { ...item, progress } : item)),
+        );
+        try {
+          await api.updateTaskProgress(id, progress);
+          void refreshProject(projectId);
+          void syncActivity(projectId);
+        } catch (error) {
+          setTasks((current) =>
+            current.map((item) => (item.id === id ? { ...item, progress: previous } : item)),
+          );
+          setApiMessage(
+            error instanceof Error ? error.message : "No fue posible guardar el progreso",
+          );
+        }
+      },
+    });
   }
 
   if (isBooting) return <LoadingScreen />;
@@ -455,7 +482,7 @@ export function PlannerApp() {
                 onCreateTask={() => setModal({ kind: "taskCreate" })}
                 onEditTask={openTaskEdit}
                 onDeleteTask={askDeleteTask}
-                onCommitProgress={commitProgress}
+                onCommitProgress={askCommitProgress}
               />
             }
           />
@@ -533,6 +560,7 @@ export function PlannerApp() {
           title={modal.title}
           message={modal.message}
           confirmLabel={modal.confirmLabel}
+          tone={modal.tone}
           onConfirm={modal.onConfirm}
           onClose={closeModal}
         />

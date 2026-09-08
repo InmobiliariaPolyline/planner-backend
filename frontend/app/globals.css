@@ -2387,6 +2387,23 @@ input:disabled {
   background: none;
   accent-color: var(--accent);
 }
+.gantt-edit > span {
+  min-width: 92px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.gantt-edit .btn {
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .gantt-edit {
+    flex-wrap: wrap;
+  }
+  .gantt-edit input[type="range"] {
+    flex-basis: 100%;
+    order: 3;
+  }
+}
 
 /* Expediente compartido (ruta pública /s/:token) */
 .public {

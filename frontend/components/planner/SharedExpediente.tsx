@@ -22,7 +22,13 @@ import { GanttChart } from "./GanttChart";
 import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { TaskFormModal } from "./TaskFormModal";
 
-type Modal = null | { kind: "project" } | { kind: "taskCreate" } | { kind: "taskEdit"; task: TaskDetail } | { kind: "taskDelete"; task: Task };
+type Modal =
+  | null
+  | { kind: "project" }
+  | { kind: "taskCreate" }
+  | { kind: "taskEdit"; task: TaskDetail }
+  | { kind: "taskDelete"; task: Task }
+  | { kind: "progress"; id: string; progress: number; previous: number; name: string };
 
 export function SharedExpediente({ token, payload }: { token: string; payload: SharedPayload }) {
   const canEdit = payload.role === "editor";
@@ -78,9 +84,15 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
     setNotice(existing ? "Tarea actualizada." : "Tarea creada.");
   }
 
-  async function commitProgress(id: string, progress: number) {
-    const previous = tasks.find((task) => task.id === id)?.progress ?? 0;
-    // optimista sobre una copia local del proyecto
+  // Mover el slider no guarda nada; se confirma antes de persistir.
+  function askCommitProgress(id: string, progress: number) {
+    const task = tasks.find((item) => item.id === id);
+    const previous = task?.progress ?? 0;
+    if (previous === progress) return;
+    setModal({ kind: "progress", id, progress, previous, name: task?.name ?? "la tarea" });
+  }
+
+  async function commitProgress(id: string, progress: number, previous: number) {
     setProject((current) => ({
       ...current,
       tasks: (current.tasks ?? []).map((raw) =>
@@ -255,7 +267,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
               onCreateTask={() => setModal({ kind: "taskCreate" })}
               onEditTask={openTaskEdit}
               onDeleteTask={(task) => setModal({ kind: "taskDelete", task })}
-              onCommitProgress={commitProgress}
+              onCommitProgress={askCommitProgress}
               readOnly={!canEdit}
             />
           )}
@@ -299,6 +311,16 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
             await api.deleteSharedTask(token, modal.task.id);
             await reload();
           }}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "progress" && (
+        <ConfirmDialog
+          title="Guardar avance"
+          message={`El avance de «${modal.name}» pasará de ${modal.previous}% a ${modal.progress}%. Quedará registrado en el historial del expediente.`}
+          confirmLabel="Guardar avance"
+          tone="accent"
+          onConfirm={() => commitProgress(modal.id, modal.progress, modal.previous)}
           onClose={() => setModal(null)}
         />
       )}
