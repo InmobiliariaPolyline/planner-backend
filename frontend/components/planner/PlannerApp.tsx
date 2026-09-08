@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/hooks/useTheme";
 import { api, onServerWaking } from "@/lib/api";
@@ -118,15 +118,44 @@ export function PlannerApp() {
     [setProjectEverywhere],
   );
 
-  const selectProject = useCallback((project: Project) => {
-    setSelectedProject(project);
-    setTasks(normalizeTasks((project.tasks ?? []) as RawTask[]));
-    setActiveView("overview");
-    void api.getProject(project.id).then((fresh) => {
-      setSelectedProject(fresh);
-      setTasks(normalizeTasks((fresh.tasks ?? []) as RawTask[]));
-    });
-  }, []);
+  // Último suceso del historial ya "visto" por expediente. Sirve para volcar a la
+  // bandeja de notificaciones cada cambio nuevo (creación, edición, borrado) que
+  // el backend registra, con el mismo texto que aparece en el historial.
+  const seenActivityRef = useRef<Map<string, string>>(new Map());
+  const syncActivity = useCallback(
+    async (projectId: string) => {
+      try {
+        const events = await api.listActivity(projectId); // más reciente primero
+        if (!events.length) return;
+        const seen = seenActivityRef.current.get(projectId);
+        seenActivityRef.current.set(projectId, events[0].id);
+        if (seen === undefined) return; // primera vez: sólo fijamos la marca
+        const nuevos: string[] = [];
+        for (const event of events) {
+          if (event.id === seen) break;
+          nuevos.push(event.summary);
+        }
+        nuevos.reverse().forEach((summary) => notify(summary));
+      } catch {
+        /* el historial puede no estar disponible todavía; no es crítico */
+      }
+    },
+    [notify],
+  );
+
+  const selectProject = useCallback(
+    (project: Project) => {
+      setSelectedProject(project);
+      setTasks(normalizeTasks((project.tasks ?? []) as RawTask[]));
+      setActiveView("overview");
+      void api.getProject(project.id).then((fresh) => {
+        setSelectedProject(fresh);
+        setTasks(normalizeTasks((fresh.tasks ?? []) as RawTask[]));
+      });
+      void syncActivity(project.id);
+    },
+    [syncActivity],
+  );
 
   const navigate = useCallback((view: ActiveView) => setActiveView(view), []);
   const closeModal = useCallback(() => setModal(null), []);
@@ -158,11 +187,13 @@ export function PlannerApp() {
   async function createTechnicalArea(name: string) {
     const area = await api.createTechnicalArea(name);
     setTechnicalAreas((current) => [...current, area].sort((a, b) => a.name.localeCompare(b.name)));
+    notify(`Área técnica creada: ${area.name}.`);
     return area;
   }
   async function createTeamStatus(type: string) {
     const status = await api.createTeamStatus(type);
     setTeamStatuses((current) => [...current, status].sort((a, b) => a.type.localeCompare(b.type)));
+    notify(`Estado de equipo creado: ${status.type}.`);
     return status;
   }
   async function deleteTechnicalArea(id: string, label: string) {
@@ -198,6 +229,7 @@ export function PlannerApp() {
     setModal(null);
     setApiMessage("Expediente creado correctamente.");
     notify(`Expediente creado: ${project.name}.`);
+    void syncActivity(project.id); // fija la marca sin volver a notificar la creación
   }
 
   async function updateProject(values: ProjectFormValues) {
@@ -212,7 +244,7 @@ export function PlannerApp() {
     setProjectEverywhere(project);
     setModal(null);
     setApiMessage("Expediente actualizado correctamente.");
-    notify(`Expediente actualizado: ${project.name}.`);
+    void syncActivity(project.id);
   }
 
   function askDeleteProject(project: Project) {
@@ -240,7 +272,7 @@ export function PlannerApp() {
     await api.createTeamMember(selectedProject.id, data);
     await refreshProject(selectedProject.id);
     setModal(null);
-    notify(`Participante añadido a ${selectedProject.name}.`);
+    void syncActivity(selectedProject.id);
   }
   function askDeleteMember(id: string, name: string) {
     if (!selectedProject) return;
@@ -253,6 +285,7 @@ export function PlannerApp() {
       onConfirm: async () => {
         await api.deleteTeamMember(id);
         await refreshProject(projectId);
+        void syncActivity(projectId);
       },
     });
   }
@@ -264,7 +297,7 @@ export function PlannerApp() {
     else await api.createMilestone(selectedProject.id, data);
     await refreshProject(selectedProject.id);
     setModal(null);
-    notify(milestone ? "Hito actualizado." : `Hito añadido a ${selectedProject.name}.`);
+    void syncActivity(selectedProject.id);
   }
   function askDeleteMilestone(milestone: Milestone) {
     if (!selectedProject) return;
@@ -277,6 +310,7 @@ export function PlannerApp() {
       onConfirm: async () => {
         await api.deleteMilestone(milestone.id);
         await refreshProject(projectId);
+        void syncActivity(projectId);
       },
     });
   }
@@ -297,7 +331,7 @@ export function PlannerApp() {
     else await api.createTask(selectedProject.id, { ...payload, progress: 0 });
     await refreshProject(selectedProject.id);
     setModal(null);
-    notify(existing ? "Tarea actualizada." : `Tarea creada: ${payload.name}.`);
+    void syncActivity(selectedProject.id);
   }
   function askDeleteTask(task: Task) {
     if (!selectedProject) return;
@@ -310,6 +344,7 @@ export function PlannerApp() {
       onConfirm: async () => {
         await api.deleteTask(task.id);
         await refreshProject(projectId);
+        void syncActivity(projectId);
       },
     });
   }
@@ -323,7 +358,10 @@ export function PlannerApp() {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress } : task)));
     try {
       await api.updateTaskProgress(id, progress);
-      if (selectedProject) void refreshProject(selectedProject.id);
+      if (selectedProject) {
+        void refreshProject(selectedProject.id);
+        void syncActivity(selectedProject.id);
+      }
     } catch (error) {
       setTasks((current) => current.map((task) => (task.id === id ? { ...task, progress: previous } : task)));
       setApiMessage(error instanceof Error ? error.message : "No fue posible guardar el progreso");
@@ -442,7 +480,12 @@ export function PlannerApp() {
         />
       )}
       {modal?.kind === "share" && selectedProject && (
-        <ShareManager projectId={selectedProject.id} projectName={selectedProject.name} onClose={closeModal} />
+        <ShareManager
+          projectId={selectedProject.id}
+          projectName={selectedProject.name}
+          onMutated={() => void syncActivity(selectedProject.id)}
+          onClose={closeModal}
+        />
       )}
       {modal?.kind === "taskCreate" && selectedProject && (
         <TaskFormModal
@@ -460,7 +503,10 @@ export function PlannerApp() {
           technicalAreas={technicalAreas}
           onCreateArea={createTechnicalArea}
           onSubmit={(values) => saveTask(values, modal.task)}
-          onExtrasChanged={() => void refreshProject(selectedProject.id)}
+          onExtrasChanged={() => {
+            void refreshProject(selectedProject.id);
+            void syncActivity(selectedProject.id);
+          }}
           onClose={closeModal}
         />
       )}

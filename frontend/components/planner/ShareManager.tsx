@@ -117,10 +117,13 @@ function LinkRow({
 export function ShareManager({
   projectId,
   projectName,
+  onMutated,
   onClose,
 }: {
   projectId: string;
   projectName: string;
+  /** Se llama tras crear, regenerar, cambiar o revocar un enlace. */
+  onMutated?: () => void;
   onClose: () => void;
 }) {
   const [links, setLinks] = useState<ShareLink[] | null>(null);
@@ -145,6 +148,7 @@ export function ShareManager({
     try {
       const link = await api.createShareLink(projectId, { role: newRole });
       setLinks((current) => [...(current ?? []), link]);
+      onMutated?.();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "No fue posible crear el enlace");
     } finally {
@@ -186,10 +190,16 @@ export function ShareManager({
               <LinkRow
                 key={link.id}
                 link={link}
-                onChange={(updated) =>
-                  setLinks((current) => (current ?? []).map((item) => (item.id === updated.id ? updated : item)))
-                }
-                onRemove={(id) => setLinks((current) => (current ?? []).filter((item) => item.id !== id))}
+                onChange={(updated) => {
+                  setLinks((current) =>
+                    (current ?? []).map((item) => (item.id === updated.id ? updated : item)),
+                  );
+                  onMutated?.();
+                }}
+                onRemove={(id) => {
+                  setLinks((current) => (current ?? []).filter((item) => item.id !== id));
+                  onMutated?.();
+                }}
               />
             ))}
           </div>
