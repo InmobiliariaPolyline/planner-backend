@@ -79,7 +79,14 @@ export type Project = {
   teamMembers?: TeamMember[];
 };
 
-export type ActivityChange = { field: string; label: string; from: string; to: string };
+export type ActivityChange = {
+  field: string;
+  label: string;
+  from: string;
+  to: string;
+  /** Sólo para valores numéricos: si el valor nuevo subió o bajó. */
+  dir?: "up" | "down";
+};
 
 export type ActivityEvent = {
   id: string;

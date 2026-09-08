@@ -2,7 +2,14 @@ import { prisma } from './prisma';
 
 export type Tone = 'neutral' | 'positive' | 'negative' | 'warning';
 
-export type FieldChange = { field: string; label: string; from: string; to: string };
+export type FieldChange = {
+  field: string;
+  label: string;
+  from: string;
+  to: string;
+  /** Sólo para valores numéricos: si el valor nuevo subió o bajó. */
+  dir?: 'up' | 'down';
+};
 
 type LogInput = {
   actor?: string;
@@ -70,7 +77,11 @@ export function diffFields(
         : a === b;
     if (equal) continue;
     const fmt = def.format ?? defaultFormat;
-    changes.push({ field: def.key, label: def.label, from: fmt(a), to: fmt(b) });
+    const change: FieldChange = { field: def.key, label: def.label, from: fmt(a), to: fmt(b) };
+    if (typeof a === 'number' && typeof b === 'number') {
+      change.dir = b > a ? 'up' : 'down';
+    }
+    changes.push(change);
   }
   return changes;
 }

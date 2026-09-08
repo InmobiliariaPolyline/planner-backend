@@ -96,6 +96,32 @@ export function dateTime(iso: string): string {
     .replace(".", "");
 }
 
+/** Hora local precisa: "14:32:07". */
+export function timeOfDay(iso: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+/** Fecha completa legible, con la primera letra en mayúscula: "domingo, 7 de septiembre de 2026". */
+export function longDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  const text = date.toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export function fallbackRange(): [number, number] {
   const start = Date.parse("2026-01-01T00:00:00Z");
   return [start, start + 28 * DAY_MS];

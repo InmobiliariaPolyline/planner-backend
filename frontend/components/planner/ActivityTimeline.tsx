@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Primitives";
 import { api } from "@/lib/api";
-import { dateTime, relativeTime } from "@/lib/format";
-import type { ActivityEvent } from "@/lib/types";
+import { longDate, relativeTime, timeOfDay } from "@/lib/format";
+import type { ActivityChange, ActivityEvent } from "@/lib/types";
 
 const ICON_BY_ENTITY: Record<string, IconName> = {
   expediente: "folder",
@@ -18,11 +18,27 @@ const ICON_BY_ENTITY: Record<string, IconName> = {
 };
 
 const MONEY_FIELDS = new Set(["budget", "Presupuesto"]);
+const NUMERIC_LABEL = /presupuesto|avance|progreso/i;
+
+/**
+ * Dirección del cambio numérico. El backend la envía en `dir`; si no viene
+ * (versión anterior de la API), se deduce comparando los números del texto.
+ */
+function changeDir(change: ActivityChange): "up" | "down" | undefined {
+  if (change.dir) return change.dir;
+  if (!NUMERIC_LABEL.test(change.label) && !MONEY_FIELDS.has(change.field)) return undefined;
+  const digits = (text: string) => Number(text.replace(/\D/g, ""));
+  const before = digits(change.from);
+  const after = digits(change.to);
+  if (!Number.isFinite(before) || !Number.isFinite(after) || before === after) return undefined;
+  return after > before ? "up" : "down";
+}
 
 function dayKey(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
 
+/** "Hoy · Domingo, 7 de septiembre de 2026" / "Ayer · …" / la fecha completa. */
 function dayLabel(iso: string): string {
   const today = new Date();
   const d = new Date(iso);
@@ -31,9 +47,10 @@ function dayLabel(iso: string): string {
       Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) /
       86_400_000,
   );
-  if (diff <= 0) return "Hoy";
-  if (diff === 1) return "Ayer";
-  return d.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+  const full = longDate(iso);
+  if (diff <= 0) return `Hoy · ${full}`;
+  if (diff === 1) return `Ayer · ${full}`;
+  return full;
 }
 
 export function ActivityTimeline({
@@ -136,23 +153,27 @@ export function ActivityTimeline({
                       <p className="activity-summary">{event.summary}</p>
                       <p className="activity-meta">
                         <strong>{event.actor}</strong>
-                        <span title={dateTime(event.createdAt)}>
-                          {relativeTime(Date.parse(event.createdAt))}
-                        </span>
+                        <span className="activity-time">{timeOfDay(event.createdAt)}</span>
+                        <span className="activity-rel">{relativeTime(Date.parse(event.createdAt))}</span>
                       </p>
                       {event.changes && event.changes.length > 0 && (
                         <ul className="activity-changes">
-                          {event.changes.map((change, index) => (
-                            <li
-                              key={index}
-                              className={MONEY_FIELDS.has(change.field) || MONEY_FIELDS.has(change.label) ? "is-money" : undefined}
-                            >
-                              <span className="activity-change-label">{change.label}</span>
-                              <span className="activity-change-from">{change.from}</span>
-                              <Icon name="arrow-right" size={12} />
-                              <span className="activity-change-to">{change.to}</span>
-                            </li>
-                          ))}
+                          {event.changes.map((change, index) => {
+                            const isMoney =
+                              MONEY_FIELDS.has(change.field) || MONEY_FIELDS.has(change.label);
+                            const dir = changeDir(change);
+                            const classes = [isMoney ? "is-money" : "", dir ? `dir-${dir}` : ""]
+                              .filter(Boolean)
+                              .join(" ");
+                            return (
+                              <li key={index} className={classes || undefined}>
+                                <span className="activity-change-label">{change.label}</span>
+                                <span className="activity-change-from">{change.from}</span>
+                                <Icon name="arrow-right" size={12} />
+                                <span className="activity-change-to">{change.to}</span>
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </div>

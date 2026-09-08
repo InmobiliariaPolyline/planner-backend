@@ -3102,11 +3102,11 @@ input:disabled {
 }
 .activity-day-label {
   margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-weight: 650;
+  color: var(--text-secondary);
 }
 .activity-events {
   list-style: none;
@@ -3187,10 +3187,14 @@ input:disabled {
   font-weight: 600;
   color: var(--text-secondary);
 }
-.activity-meta strong::after {
+.activity-meta > * + *::before {
   content: "·";
-  margin-left: var(--space-2);
+  margin-right: var(--space-2);
   color: var(--border-strong);
+}
+.activity-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
 .activity-changes {
   list-style: none;
@@ -3210,17 +3214,20 @@ input:disabled {
   color: var(--text-muted);
   margin-right: 2px;
 }
-.activity-change-from {
+.activity-change-from,
+.activity-change-to {
   padding: 1px 7px;
   border-radius: var(--radius-xs);
+}
+/* Cambio de texto (nombre, responsable, fecha…): el viejo se retira (rojo,
+   tachado), el nuevo entra (verde). */
+.activity-change-from {
   background: var(--danger-subtle);
   color: var(--danger-on-subtle);
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--danger) 55%, transparent);
 }
 .activity-change-to {
-  padding: 1px 7px;
-  border-radius: var(--radius-xs);
   background: var(--success-subtle);
   color: var(--success-on-subtle);
   font-weight: 600;
@@ -3229,13 +3236,25 @@ input:disabled {
   color: var(--text-muted);
   flex-shrink: 0;
 }
+/* Cambio numérico (dinero, avance): el color del valor NUEVO indica la
+   dirección — verde si sube, rojo si baja; el valor anterior queda neutro. */
+.activity-changes li.dir-up .activity-change-from,
+.activity-changes li.dir-down .activity-change-from {
+  background: var(--surface-3);
+  color: var(--text-muted);
+  text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
+}
+.activity-changes li.dir-up .activity-change-to {
+  background: var(--success-subtle);
+  color: var(--success-on-subtle);
+}
+.activity-changes li.dir-down .activity-change-to {
+  background: var(--danger-subtle);
+  color: var(--danger-on-subtle);
+}
 .activity-changes li.is-money .activity-change-from,
 .activity-changes li.is-money .activity-change-to {
   font-variant-numeric: tabular-nums;
-}
-.activity-changes li.is-money .activity-change-to {
-  background: var(--warning-subtle);
-  color: var(--warning-on-subtle);
 }
 
 /* Panel "Compartir" (in-app) */
