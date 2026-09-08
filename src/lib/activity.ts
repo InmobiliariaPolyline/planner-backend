@@ -24,11 +24,35 @@ type LogInput = {
 export const ACTOR_ADMIN = 'Administrador';
 export const ACTOR_LINK = 'Colaborador (enlace)';
 
+// El historial de un expediente se conserva 1 año + 2 semanas de margen.
+// Pasado ese plazo, cada suceso se borra solo (limpieza perezosa al leer/escribir).
+export const RETENTION_DAYS = 365 + 14;
+
+let lastPrune = 0;
+
+/**
+ * Borra de toda la base los sucesos con más de RETENTION_DAYS. Limpieza
+ * perezosa: se lanza al leer o escribir el historial, como mucho una vez por
+ * minuto, así no hace falta un cron.
+ */
+export async function pruneOldActivity(): Promise<void> {
+  const now = Date.now();
+  if (now - lastPrune < 60_000) return;
+  lastPrune = now;
+  const cutoff = new Date(now - RETENTION_DAYS * 86_400_000);
+  try {
+    await prisma.activityEvent.deleteMany({ where: { createdAt: { lt: cutoff } } });
+  } catch (error) {
+    console.error('No se pudo limpiar el historial antiguo:', error);
+  }
+}
+
 /**
  * Registra un suceso del expediente. No lanza nunca: un fallo de auditoría no
  * debe tumbar la operación que lo originó.
  */
 export async function logEvent(projectId: string, input: LogInput): Promise<void> {
+  void pruneOldActivity();
   try {
     await prisma.activityEvent.create({
       data: {

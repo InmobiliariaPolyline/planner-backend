@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
+import { friendlyError } from "@/lib/errors";
 import { Badge } from "@/components/ui/Primitives";
 import { api } from "@/lib/api";
 import type { ShareLink, ShareRole } from "@/lib/types";
@@ -136,7 +137,7 @@ export function ShareManager({
       .listShareLinks(projectId)
       .then(setLinks)
       .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : "No fue posible cargar los enlaces"),
+        setError(friendlyError(loadError)),
       );
   }, [projectId]);
 
@@ -150,7 +151,7 @@ export function ShareManager({
       setLinks((current) => [...(current ?? []), link]);
       onMutated?.();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "No fue posible crear el enlace");
+      setError(friendlyError(createError));
     } finally {
       setCreating(false);
     }

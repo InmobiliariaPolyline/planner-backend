@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, Badge, EmptyState, StatCard } from "@/components/ui/Primitives";
 import { currency, dateRange, isoDay } from "@/lib/format";
+import { exportProjectExcel, exportProjectPdf } from "@/lib/transfer";
 import type { Milestone, Project } from "@/lib/types";
 import { ActivityTimeline } from "./ActivityTimeline";
 
@@ -22,6 +23,8 @@ export function ProjectDetailView({
   onAddMilestone,
   onEditMilestone,
   onDeleteMilestone,
+  onImportActivity,
+  activityReload,
   gantt,
 }: {
   project: Project;
@@ -38,6 +41,8 @@ export function ProjectDetailView({
   onAddMilestone: () => void;
   onEditMilestone: (milestone: Milestone) => void;
   onDeleteMilestone: (milestone: Milestone) => void;
+  onImportActivity: (file: File) => void;
+  activityReload: number;
   gantt: ReactNode;
 }) {
   const completed = project.progress === 100;
@@ -63,6 +68,23 @@ export function ProjectDetailView({
           <p className="hero-lead">Responsable: {project.ownerName}</p>
         </div>
         <div className="detail-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => void exportProjectExcel(project)}
+            title="Descargar el expediente en Excel (sirve para respaldo y para reimportar)"
+          >
+            <Icon name="arrow-right" size={15} />
+            Excel
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => exportProjectPdf(project)}
+            title="Descargar el expediente en PDF (para leer o imprimir)"
+          >
+            PDF
+          </button>
           <button type="button" className="btn btn-secondary" onClick={onShare}>
             <Icon name="link" size={15} />
             Compartir
@@ -111,8 +133,9 @@ export function ProjectDetailView({
 
       {activeTab === "activity" ? (
         <ActivityTimeline
-          projectId={project.id}
-          reloadKey={members.length + milestones.length + taskCount}
+          project={project}
+          onImport={onImportActivity}
+          reloadKey={members.length + milestones.length + taskCount + activityReload}
         />
       ) : activeTab === "overview" ? (
         <>

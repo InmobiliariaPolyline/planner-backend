@@ -7,7 +7,7 @@ import { prisma, pool, projectInclude } from './lib/prisma';
 import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAccessError } from './lib/share';
 import { assertDateOrder, monthsBetween, recomputeProjectProgress } from './lib/projectMath';
-import { ACTOR_ADMIN, ACTOR_LINK, diffFields, logEvent, money, percent } from './lib/activity';
+import { ACTOR_ADMIN, ACTOR_LINK, diffFields, logEvent, money, percent, pruneOldActivity, RETENTION_DAYS } from './lib/activity';
 
 const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
 
@@ -85,15 +85,65 @@ app.get('/projects/:id', async (req: Request, res: Response) => {
 // Historial de sucesos del expediente (más reciente primero).
 app.get('/projects/:projectId/activity', async (req: Request, res: Response) => {
   try {
+    void pruneOldActivity();
     const events = await prisma.activityEvent.findMany({
       where: { projectId: String(req.params.projectId) },
       orderBy: { createdAt: 'desc' },
-      take: 200,
+      take: 500,
     });
     res.json(events);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener el historial' });
+  }
+});
+
+// Importar sucesos al historial (backup). Cada suceso conserva su fecha original,
+// así aparecen ordenados donde corresponde. Se descartan los ya presentes y los
+// que superan la retención.
+app.post('/projects/:projectId/activity/import', async (req: Request, res: Response) => {
+  try {
+    const projectId = String(req.params.projectId);
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
+    if (!project) { res.status(404).json({ error: 'Expediente no encontrado' }); return; }
+
+    const rows = Array.isArray(req.body?.events) ? req.body.events : [];
+    if (!rows.length) { res.status(400).json({ error: 'El archivo no contiene sucesos.' }); return; }
+
+    const minDate = Date.now() - RETENTION_DAYS * 86_400_000;
+    const existing = await prisma.activityEvent.findMany({
+      where: { projectId },
+      select: { createdAt: true, summary: true },
+    });
+    const seen = new Set(existing.map((e) => `${e.createdAt.getTime()}|${e.summary}`));
+
+    const toCreate: { projectId: string; createdAt: Date; actor: string; action: string; entity: string; target: string | null; summary: string; tone: string; changes?: unknown }[] = [];
+    for (const row of rows) {
+      const createdAt = new Date(String(row.createdAt ?? row.fecha ?? ''));
+      const summary = cleanText(row.summary ?? row.resumen, 'summary', false);
+      if (Number.isNaN(createdAt.getTime()) || !summary) continue;
+      if (createdAt.getTime() < minDate) continue;
+      const key = `${createdAt.getTime()}|${summary}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      toCreate.push({
+        projectId,
+        createdAt,
+        actor: cleanText(row.actor, 'actor', false) ?? ACTOR_ADMIN,
+        action: cleanText(row.action ?? row.accion, 'action', false) ?? 'import',
+        entity: cleanText(row.entity ?? row.entidad, 'entity', false) ?? '—',
+        target: cleanText(row.target ?? row.objeto, 'target', false) ?? null,
+        summary,
+        tone: ['positive', 'negative', 'warning', 'neutral'].includes(row.tone) ? row.tone : 'neutral',
+        changes: Array.isArray(row.changes) ? row.changes : undefined,
+      });
+    }
+
+    if (toCreate.length) await prisma.activityEvent.createMany({ data: toCreate as never });
+    res.json({ imported: toCreate.length, skipped: rows.length - toCreate.length });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible importar el historial' });
   }
 });
 
@@ -125,6 +175,115 @@ app.post('/projects', async (req: Request, res: Response) => {
     res.status(201).json(project);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el proyecto' });
+  }
+});
+
+/** Busca (o crea) un catálogo por nombre, sin distinguir mayúsculas ni espacios. */
+async function resolveArea(name: string, cache: Map<string, string>): Promise<string> {
+  const key = name.trim().toLowerCase();
+  if (cache.has(key)) return cache.get(key)!;
+  const found = await prisma.technicalArea.findFirst({ where: { name: { equals: name.trim(), mode: 'insensitive' } } });
+  const id = found?.id ?? (await prisma.technicalArea.create({ data: { name: name.trim() } })).id;
+  cache.set(key, id);
+  return id;
+}
+async function resolveStatus(type: string, cache: Map<string, string>): Promise<string> {
+  const key = type.trim().toLowerCase();
+  if (cache.has(key)) return cache.get(key)!;
+  const found = await prisma.teamStatus.findFirst({ where: { type: { equals: type.trim(), mode: 'insensitive' } } });
+  const id = found?.id ?? (await prisma.teamStatus.create({ data: { type: type.trim() } })).id;
+  cache.set(key, id);
+  return id;
+}
+
+// Importar un expediente completo desde un archivo. Las áreas técnicas y estados
+// de equipo se resuelven por nombre (se crean si no existen). Crea el expediente
+// al momento y devuelve el resultado con su contenido.
+app.post('/projects/import', async (req: Request, res: Response) => {
+  try {
+    const body = req.body ?? {};
+    const p = body.project ?? {};
+    const start = requiredDate(p.startDate, 'startDate');
+    const end = requiredDate(p.endDate, 'endDate');
+    assertDateOrder(start, end);
+
+    const project = await prisma.project.create({
+      data: {
+        name: cleanText(p.name, 'name')!,
+        startDate: start,
+        endDate: end,
+        budget: requiredNumber(p.budget, 'budget'),
+        durationMonths: monthsBetween(start, end),
+        progress: 0,
+        ownerName: cleanText(p.ownerName, 'ownerName')!,
+      },
+    });
+
+    const areaCache = new Map<string, string>();
+    const statusCache = new Map<string, string>();
+    let tasks = 0;
+    let members = 0;
+    let milestones = 0;
+
+    for (const t of Array.isArray(body.tasks) ? body.tasks : []) {
+      const areaName = cleanText(t.technicalArea ?? t.area, 'technicalArea', false);
+      if (!areaName) continue;
+      const ts = requiredDate(t.startDate, 'startDate');
+      const te = requiredDate(t.endDate, 'endDate');
+      assertDateOrder(ts, te);
+      await prisma.task.create({
+        data: {
+          name: cleanText(t.name, 'name')!,
+          projectId: project.id,
+          startDate: ts,
+          endDate: te,
+          technicalAreaId: await resolveArea(areaName, areaCache),
+          progress: requiredNumber(t.progress ?? 0, 'progress', 0, 100),
+          dependency: cleanText(t.dependency ?? '', 'dependency', false) ?? '',
+          isPhase: Boolean(t.isPhase),
+          ownerName: cleanText(t.ownerName, 'ownerName')!,
+        },
+      });
+      tasks++;
+    }
+    await recomputeProjectProgress(project.id);
+
+    for (const m of Array.isArray(body.teamMembers) ? body.teamMembers : []) {
+      const statusName = cleanText(m.teamStatus ?? m.status ?? m.estado, 'teamStatus', false);
+      if (!statusName) continue;
+      await prisma.teamMember.create({
+        data: {
+          name: cleanText(m.name, 'name')!,
+          projectId: project.id,
+          teamStatusId: await resolveStatus(statusName, statusCache),
+        },
+      });
+      members++;
+    }
+
+    for (const h of Array.isArray(body.milestones) ? body.milestones : []) {
+      await prisma.milestone.create({
+        data: {
+          description: cleanText(h.description ?? h.descripcion, 'description')!,
+          date: requiredDate(h.date ?? h.fecha, 'date'),
+          projectId: project.id,
+        },
+      });
+      milestones++;
+    }
+
+    const full = await prisma.project.findUnique({ where: { id: project.id }, include: projectInclude });
+    await logEvent(project.id, {
+      action: 'project.create',
+      entity: 'expediente',
+      target: project.name,
+      summary: `Importó el expediente «${project.name}» (${tasks} tareas, ${members} participantes, ${milestones} hitos)`,
+      tone: 'positive',
+    });
+    res.status(201).json(full);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible importar el expediente' });
   }
 });
 

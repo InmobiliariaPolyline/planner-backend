@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { FilePicker } from "@/components/ui/FilePicker";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Primitives";
 import { api } from "@/lib/api";
 import { longDate, relativeTime, timeOfDay } from "@/lib/format";
-import type { ActivityChange, ActivityEvent } from "@/lib/types";
+import { exportActivityExcel, exportActivityPdf } from "@/lib/transfer";
+import type { ActivityChange, ActivityEvent, Project } from "@/lib/types";
 
 const ICON_BY_ENTITY: Record<string, IconName> = {
   expediente: "folder",
@@ -54,13 +56,16 @@ function dayLabel(iso: string): string {
 }
 
 export function ActivityTimeline({
-  projectId,
+  project,
   reloadKey = 0,
+  onImport,
 }: {
-  projectId: string;
+  project: Project;
   /** Cambia este número para forzar una recarga del historial. */
   reloadKey?: number;
+  onImport?: (file: File) => void;
 }) {
+  const projectId = project.id;
   const [events, setEvents] = useState<ActivityEvent[] | null>(null);
   const [error, setError] = useState("");
 
@@ -120,10 +125,34 @@ export function ActivityTimeline({
             Historial del expediente <span className="count">{events.length}</span>
           </h2>
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => load()}>
-          <Icon name="arrow-right" size={14} />
-          Actualizar
-        </button>
+        <div className="activity-tools">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => load()}>
+            <Icon name="arrow-right" size={14} />
+            Actualizar
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={!events.length}
+            onClick={() => exportActivityExcel(project, events)}
+          >
+            Excel
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={!events.length}
+            onClick={() => exportActivityPdf(project, events)}
+          >
+            PDF
+          </button>
+          {onImport && (
+            <FilePicker accept=".xlsx" onPick={onImport}>
+              <Icon name="arrow-left" size={14} />
+              Importar
+            </FilePicker>
+          )}
+        </div>
       </div>
 
       {error && (

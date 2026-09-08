@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
+import { friendlyError } from "@/lib/errors";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import { formatMoney, parseMoney } from "@/lib/money";
 import type { Project, ProjectFormValues } from "@/lib/types";
@@ -104,7 +105,7 @@ export function ProjectFormModal({
     try {
       await onSubmit(values);
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : "No fue posible guardar");
+      setServerError(friendlyError(error));
     } finally {
       setSaving(false);
     }

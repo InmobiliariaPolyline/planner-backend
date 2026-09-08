@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { friendlyError } from "@/lib/errors";
 import { Icon } from "./Icon";
 import { Modal } from "./Modal";
 
@@ -29,7 +30,7 @@ export function ConfirmDialog({
       await onConfirm();
       onClose();
     } catch (runError) {
-      setError(runError instanceof Error ? runError.message : "No fue posible completar la acción");
+      setError(friendlyError(runError));
       setBusy(false);
     }
   }

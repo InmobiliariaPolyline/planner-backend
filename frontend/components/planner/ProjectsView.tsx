@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FilePicker } from "@/components/ui/FilePicker";
 import { Icon } from "@/components/ui/Icon";
 import { Badge, EmptyState, ProgressBar } from "@/components/ui/Primitives";
 import { currency, dateRange } from "@/lib/format";
@@ -80,12 +81,14 @@ export function ProjectsView({
   projects,
   apiMessage,
   onCreate,
+  onImport,
   onSelect,
   onDelete,
 }: {
   projects: Project[];
   apiMessage: string;
   onCreate: () => void;
+  onImport: (file: File) => void;
   onSelect: (project: Project) => void;
   onDelete: (project: Project) => void;
 }) {
@@ -126,10 +129,16 @@ export function ProjectsView({
           </h1>
           <p className="hero-lead">Administra y da seguimiento al ciclo de vida de tus proyectos.</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={onCreate}>
-          <Icon name="plus" size={16} />
-          Nuevo expediente
-        </button>
+        <div className="hero-actions">
+          <FilePicker accept=".xlsx" onPick={onImport} className="btn btn-secondary">
+            <Icon name="arrow-left" size={16} />
+            Importar
+          </FilePicker>
+          <button type="button" className="btn btn-primary" onClick={onCreate}>
+            <Icon name="plus" size={16} />
+            Nuevo expediente
+          </button>
+        </div>
       </header>
 
       {apiMessage && <p className="banner">{apiMessage}</p>}

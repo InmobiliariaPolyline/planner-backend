@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { EmptyState } from "@/components/ui/Primitives";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
+import { friendlyError } from "@/lib/errors";
 import type { TeamStatusOption, TechnicalArea } from "@/lib/types";
 
 type Item = { id: string; label: string };
@@ -61,7 +62,7 @@ function CatalogPanel({
       setDraft("");
       setShowErrors(false);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "No fue posible crear");
+      setError(friendlyError(createError));
     } finally {
       setBusy(false);
     }
@@ -72,7 +73,7 @@ function CatalogPanel({
     try {
       await onDelete(id, label);
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "No fue posible eliminar");
+      setError(friendlyError(deleteError));
     }
   }
 

@@ -40,6 +40,9 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   con la línea de tiempo de todos los sucesos del expediente (creación,
   cambios de valor con antes→después, altas y bajas). **Requiere aplicar la
   migración `20260908120000_add_activity_events` a Neon.**
+- `010-import-export-retencion-avisos.md`: importar/exportar expediente e
+  historial en Excel y PDF, retención del historial a 1 año + 2 semanas
+  (borrado automático), y avisos flotantes verde/rojo con mensajes claros.
 
 ## Cambios mayores (no son parches)
 

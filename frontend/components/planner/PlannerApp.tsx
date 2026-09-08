@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/hooks/useTheme";
+import { useToasts } from "@/hooks/useToasts";
 import { api, onServerWaking } from "@/lib/api";
+import { friendlyError } from "@/lib/errors";
+import { parseActivityFile, parseProjectFile } from "@/lib/transfer";
 import { normalizeTasks, toTaskDetail } from "@/lib/normalize";
 import type {
   ActiveView,
@@ -19,6 +22,7 @@ import type {
   TechnicalArea,
 } from "@/lib/types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Toaster } from "@/components/ui/Toaster";
 import { AppShell } from "./AppShell";
 import { DashboardView } from "./DashboardView";
 import { GanttChart } from "./GanttChart";
@@ -55,6 +59,12 @@ type Modal =
 export function PlannerApp() {
   const { theme, toggleTheme } = useTheme();
   const {
+    toasts,
+    success: toastOk,
+    error: toastError,
+    dismiss: dismissToast,
+  } = useToasts();
+  const {
     notifications,
     notify,
     dismiss: dismissNotification,
@@ -75,6 +85,7 @@ export function PlannerApp() {
 
   const [technicalAreas, setTechnicalAreas] = useState<TechnicalArea[]>([]);
   const [teamStatuses, setTeamStatuses] = useState<TeamStatusOption[]>([]);
+  const [activityReload, setActivityReload] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsBooting(false), 1600);
@@ -95,14 +106,15 @@ export function PlannerApp() {
         setApiMessage("");
         setServerWaking(false);
       })
-      .catch(() => {
+      .catch((error) => {
         setProjects([]);
-        setApiMessage("API no disponible. Revisa tu conexión o inténtalo de nuevo en un momento.");
+        setApiMessage("");
+        toastError("No se pudieron cargar los expedientes", friendlyError(error));
         setServerWaking(false);
       });
     api.listTechnicalAreas().then(setTechnicalAreas).catch(() => undefined);
     api.listTeamStatuses().then(setTeamStatuses).catch(() => undefined);
-  }, [authenticated]);
+  }, [authenticated, toastError]);
 
   const setProjectEverywhere = useCallback((updated: Project) => {
     setProjects((current) => current.map((item) => (item.id === updated.id ? updated : item)));
@@ -137,17 +149,23 @@ export function PlannerApp() {
         const seen = seenActivityRef.current.get(projectId);
         seenActivityRef.current.set(projectId, events[0].id);
         if (seen === undefined) return; // primera vez: sólo fijamos la marca
-        const nuevos: string[] = [];
+        const nuevos: { summary: string; action: string }[] = [];
         for (const event of events) {
           if (event.id === seen) break;
-          nuevos.push(event.summary);
+          nuevos.push({ summary: event.summary, action: event.action });
         }
-        nuevos.reverse().forEach((summary) => notify(summary));
+        nuevos.reverse().forEach(({ summary, action }) => {
+          notify(summary);
+          // Aviso flotante de "listo" sólo para altas y bajas, no para cada edición.
+          if (/\.(create|add|delete|remove|revoke)$/.test(action)) {
+            toastOk(summary);
+          }
+        });
       } catch {
         /* el historial puede no estar disponible todavía; no es crítico */
       }
     },
-    [notify],
+    [notify, toastOk],
   );
 
   const selectProject = useCallback(
@@ -195,12 +213,14 @@ export function PlannerApp() {
     const area = await api.createTechnicalArea(name);
     setTechnicalAreas((current) => [...current, area].sort((a, b) => a.name.localeCompare(b.name)));
     notify(`Área técnica creada: ${area.name}.`);
+    toastOk("Área técnica creada", area.name);
     return area;
   }
   async function createTeamStatus(type: string) {
     const status = await api.createTeamStatus(type);
     setTeamStatuses((current) => [...current, status].sort((a, b) => a.type.localeCompare(b.type)));
     notify(`Estado de equipo creado: ${status.type}.`);
+    toastOk("Estado de equipo creado", status.type);
     return status;
   }
   async function deleteTechnicalArea(id: string, label: string) {
@@ -211,6 +231,7 @@ export function PlannerApp() {
     await api.deleteTechnicalArea(id);
     setTechnicalAreas((current) => current.filter((area) => area.id !== id));
     notify(`Área técnica eliminada: ${label}.`);
+    toastOk("Área técnica eliminada", label);
   }
   async function deleteTeamStatus(id: string, label: string) {
     const inUse = statusUsage[id] ?? 0;
@@ -220,6 +241,7 @@ export function PlannerApp() {
     await api.deleteTeamStatus(id);
     setTeamStatuses((current) => current.filter((status) => status.id !== id));
     notify(`Estado de equipo eliminado: ${label}.`);
+    toastOk("Estado de equipo eliminado", label);
   }
 
   // ── Proyectos ────────────────────────────────────────────────────────────
@@ -234,8 +256,9 @@ export function PlannerApp() {
     setProjects((current) => [project, ...current]);
     setSelectedProject(project);
     setModal(null);
-    setApiMessage("Expediente creado correctamente.");
+    setApiMessage("");
     notify(`Expediente creado: ${project.name}.`);
+    toastOk("Expediente creado", project.name);
     void syncActivity(project.id); // fija la marca sin volver a notificar la creación
   }
 
@@ -250,7 +273,7 @@ export function PlannerApp() {
     });
     setProjectEverywhere(project);
     setModal(null);
-    setApiMessage("Expediente actualizado correctamente.");
+    setApiMessage("");
     void syncActivity(project.id);
   }
 
@@ -267,8 +290,9 @@ export function PlannerApp() {
           setSelectedProject(null);
           setActiveView("projects");
         }
-        setApiMessage("Expediente eliminado correctamente.");
+        setApiMessage("");
         notify(`Expediente eliminado: ${project.name}.`);
+        toastOk("Expediente eliminado", project.name);
       },
     });
   }
@@ -360,6 +384,46 @@ export function PlannerApp() {
     if (raw) setModal({ kind: "taskEdit", task: toTaskDetail(raw as RawTask) });
   }
 
+  // ── Importar (Excel) ─────────────────────────────────────────────────────
+  async function importProjectFromFile(file: File) {
+    try {
+      const payload = await parseProjectFile(file);
+      const project = await api.importProject(payload);
+      setProjects((current) => [project, ...current]);
+      setSelectedProject(project);
+      setTasks(normalizeTasks((project.tasks ?? []) as RawTask[]));
+      setActiveView("overview");
+      seenActivityRef.current.delete(project.id);
+      void syncActivity(project.id);
+      notify(`Expediente importado: ${project.name}.`);
+      toastOk(
+        "Expediente importado",
+        `${project.name} · ${payload.tasks.length} tareas, ${payload.teamMembers.length} participantes`,
+      );
+    } catch (error) {
+      toastError("No se pudo importar el expediente", friendlyError(error));
+    }
+  }
+
+  async function importActivityFromFile(file: File) {
+    if (!selectedProject) return;
+    const projectId = selectedProject.id;
+    try {
+      const events = await parseActivityFile(file);
+      if (!events.length) {
+        throw new Error("El archivo no tiene sucesos con fecha y resumen.");
+      }
+      const result = await api.importActivity(projectId, events);
+      setActivityReload((n) => n + 1);
+      toastOk(
+        "Historial importado",
+        `${result.imported} sucesos añadidos${result.skipped ? ` · ${result.skipped} ya estaban o eran muy antiguos` : ""}`,
+      );
+    } catch (error) {
+      toastError("No se pudo importar el historial", friendlyError(error));
+    }
+  }
+
   // Mover el slider no guarda nada; al pulsar «Guardar avance» se pide
   // confirmación y sólo entonces se persiste y se registra en el historial.
   function askCommitProgress(id: string, progress: number) {
@@ -387,9 +451,7 @@ export function PlannerApp() {
           setTasks((current) =>
             current.map((item) => (item.id === id ? { ...item, progress: previous } : item)),
           );
-          setApiMessage(
-            error instanceof Error ? error.message : "No fue posible guardar el progreso",
-          );
+          toastError("No se pudo guardar el avance", friendlyError(error));
         }
       },
     });
@@ -434,6 +496,7 @@ export function PlannerApp() {
             projects={projects}
             apiMessage={banner}
             onCreate={() => setModal({ kind: "projectCreate" })}
+            onImport={importProjectFromFile}
             onSelect={selectProject}
             onDelete={askDeleteProject}
           />
@@ -474,6 +537,8 @@ export function PlannerApp() {
             onAddMilestone={() => setModal({ kind: "milestoneCreate" })}
             onEditMilestone={(milestone) => setModal({ kind: "milestoneEdit", milestone })}
             onDeleteMilestone={askDeleteMilestone}
+            onImportActivity={importActivityFromFile}
+            activityReload={activityReload}
             gantt={
               <GanttChart
                 tasks={tasks}
@@ -565,6 +630,8 @@ export function PlannerApp() {
           onClose={closeModal}
         />
       )}
+
+      <Toaster toasts={toasts} onDismiss={dismissToast} />
     </>
   );
 }

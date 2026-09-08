@@ -88,6 +88,18 @@ export const api = {
       retry: true,
       failMessage: "No fue posible cargar el historial",
     }),
+  importProject: (payload: unknown) =>
+    request<Project>("/projects/import", {
+      method: "POST",
+      body: json(payload),
+      failMessage: "No fue posible importar el expediente",
+    }),
+  importActivity: (projectId: string, events: unknown[]) =>
+    request<{ imported: number; skipped: number }>(`/projects/${projectId}/activity/import`, {
+      method: "POST",
+      body: json({ events }),
+      failMessage: "No fue posible importar el historial",
+    }),
 
   // Catálogos
   listTeamStatuses: () => request<{ id: string; type: string }[]>("/team-statuses", { failMessage: "No fue posible cargar los estados de equipo" }),

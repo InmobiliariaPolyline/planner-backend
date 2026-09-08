@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { friendlyError } from "@/lib/errors";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import { isoDay } from "@/lib/format";
 import type { Milestone } from "@/lib/types";
@@ -45,7 +46,7 @@ export function MilestoneFormModal({
     try {
       await onSubmit({ description: description.trim(), date });
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "No fue posible guardar");
+      setError(friendlyError(submitError));
       setSaving(false);
     }
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
+import { friendlyError } from "@/lib/errors";
 import { SelectOrCreate } from "@/components/ui/SelectOrCreate";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import { api } from "@/lib/api";
@@ -85,7 +86,7 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
       await action();
       onChanged();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "No fue posible completar la acción");
+      setError(friendlyError(actionError));
     }
   }
 
@@ -269,7 +270,7 @@ export function TaskFormModal({
     try {
       await onSubmit(values);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "No fue posible guardar");
+      setError(friendlyError(submitError));
       setSaving(false);
     }
   }

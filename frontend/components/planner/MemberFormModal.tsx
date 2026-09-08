@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { friendlyError } from "@/lib/errors";
 import { SelectOrCreate } from "@/components/ui/SelectOrCreate";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import type { TeamStatusOption } from "@/lib/types";
@@ -42,7 +43,7 @@ export function MemberFormModal({
     try {
       await onSubmit({ name: name.trim(), teamStatusId: statusId });
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "No fue posible guardar");
+      setError(friendlyError(submitError));
       setSaving(false);
     }
   }

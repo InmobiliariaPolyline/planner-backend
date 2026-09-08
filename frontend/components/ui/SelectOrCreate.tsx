@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icon } from "./Icon";
 import { fieldError, type Rule } from "./ValidatedField";
+import { friendlyError } from "@/lib/errors";
 
 const draftRules: Rule[] = [
   { label: "Obligatorio", test: (v) => v.trim().length > 0 },
@@ -62,7 +63,7 @@ export function SelectOrCreate({
       setDraft("");
       setCreating(false);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "No fue posible crear");
+      setError(friendlyError(createError));
     } finally {
       setBusy(false);
     }
