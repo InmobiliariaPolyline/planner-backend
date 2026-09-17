@@ -4,37 +4,37 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { friendlyError } from "@/lib/errors";
 import { SelectOrCreate } from "@/components/ui/SelectOrCreate";
-import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import type { BasicUser, TeamStatusOption } from "@/lib/types";
-
-const textRules: Rule[] = [
-  { label: "Obligatorio", test: (v) => v.trim().length > 0 },
-  { label: "Máximo 300 caracteres", test: (v) => v.trim().length <= 300 },
-  { label: "Sin los símbolos < o >", test: (v) => !/[<>]/.test(v) },
-];
 
 export function MemberFormModal({
   statuses,
-  accounts = [],
+  accounts,
+  excludeUserIds = [],
   onCreateStatus,
   onSubmit,
   onClose,
 }: {
   statuses: TeamStatusOption[];
-  /** Cuentas del sistema a las que se puede vincular el participante (opcional). */
-  accounts?: BasicUser[];
+  /** Cuentas del sistema entre las que elegir (ya son cuentas reales, no texto libre). */
+  accounts: BasicUser[];
+  /** Cuentas que ya son participantes de este expediente: no se pueden volver a añadir. */
+  excludeUserIds?: string[];
   onCreateStatus: (type: string) => Promise<TeamStatusOption>;
-  onSubmit: (data: { name: string; teamStatusId: string; userId?: string | null }) => Promise<void>;
+  onSubmit: (data: { userIds: string[]; teamStatusId: string }) => Promise<void>;
   onClose: () => void;
 }) {
-  const [name, setName] = useState("");
+  const available = accounts.filter((account) => !excludeUserIds.includes(account.id));
+  const [selected, setSelected] = useState<string[]>([]);
   const [statusId, setStatusId] = useState(statuses[0]?.id ?? "");
-  const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [error, setError] = useState("");
 
-  const invalid = fieldError(name, textRules) !== null || !statusId;
+  const invalid = selected.length === 0 || !statusId;
+
+  function toggle(id: string) {
+    setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -45,7 +45,7 @@ export function MemberFormModal({
     }
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), teamStatusId: statusId, userId: userId || null });
+      await onSubmit({ userIds: selected, teamStatusId: statusId });
     } catch (submitError) {
       setError(friendlyError(submitError));
       setSaving(false);
@@ -55,14 +55,32 @@ export function MemberFormModal({
   return (
     <Modal eyebrow="Equipo del proyecto" title="Añadir participante" onClose={onClose}>
       <form className="form" onSubmit={handleSubmit} noValidate>
-        <ValidatedField
-          label="Nombre"
-          example="Jorge Peña"
-          rules={textRules}
-          value={name}
-          onChange={setName}
-          showErrors={showErrors}
-        />
+        <div className="form-row">
+          <span>Selecciona a uno o varios integrantes</span>
+          {available.length === 0 ? (
+            <p className="hero-lead">
+              No hay cuentas disponibles: todas ya son participantes de este expediente, o no hay
+              cuentas creadas todavía.
+            </p>
+          ) : (
+            <ul className="catalog-list">
+              {available.map((account) => {
+                const checked = selected.includes(account.id);
+                return (
+                  <li key={account.id}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flex: 1, cursor: "pointer" }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggle(account.id)} />
+                      <span>
+                        {account.name} · {account.roleLabel}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
         <SelectOrCreate
           label="Estado en el equipo"
           example="Activo, Inactivo, De baja"
@@ -78,26 +96,13 @@ export function MemberFormModal({
           required
           showErrors={showErrors}
         />
-        {accounts.length > 0 && (
-          <div className="form-row">
-            <span>Cuenta del sistema (opcional)</span>
-            <select value={userId} onChange={(event) => setUserId(event.target.value)}>
-              <option value="">Ninguna — solo un nombre</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name} ({account.roleLabel})
-                </option>
-              ))}
-            </select>
-            <p className="hero-lead" style={{ marginTop: "var(--space-1)" }}>
-              Si vinculas una cuenta, esa persona podrá ver este expediente al iniciar sesión.
-            </p>
-          </div>
+
+        {showErrors && invalid && (
+          <p className="form-error">Selecciona al menos un integrante y el estado en el equipo.</p>
         )}
-        {showErrors && invalid && <p className="form-error">Completa el nombre y el estado.</p>}
         {error && <p className="form-error">{error}</p>}
-        <button type="submit" className="btn btn-primary btn-block" disabled={saving}>
-          {saving ? "Guardando…" : "Añadir participante"}
+        <button type="submit" className="btn btn-primary btn-block" disabled={saving || available.length === 0}>
+          {saving ? "Guardando…" : selected.length > 1 ? `Añadir ${selected.length} participantes` : "Añadir participante"}
         </button>
       </form>
     </Modal>

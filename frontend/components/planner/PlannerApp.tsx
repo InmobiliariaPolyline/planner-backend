@@ -306,9 +306,13 @@ export function PlannerApp() {
   }
 
   // ── Participantes ────────────────────────────────────────────────────────
-  async function addMember(data: { name: string; teamStatusId: string; userId?: string | null }) {
+  async function addMember(data: { userIds: string[]; teamStatusId: string }) {
     if (!selectedProject) return;
-    await api.createTeamMember(selectedProject.id, data);
+    for (const userId of data.userIds) {
+      const account = basicUsers.find((user) => user.id === userId);
+      if (!account) continue;
+      await api.createTeamMember(selectedProject.id, { name: account.name, teamStatusId: data.teamStatusId, userId });
+    }
     await refreshProject(selectedProject.id);
     setModal(null);
     void syncActivity(selectedProject.id);
@@ -628,6 +632,7 @@ export function PlannerApp() {
         <MemberFormModal
           statuses={teamStatuses}
           accounts={basicUsers}
+          excludeUserIds={(selectedProject.teamMembers ?? []).map((member) => member.userId).filter((id): id is string => Boolean(id))}
           onCreateStatus={createTeamStatus}
           onSubmit={addMember}
           onClose={closeModal}
