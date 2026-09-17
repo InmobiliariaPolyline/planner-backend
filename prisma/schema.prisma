@@ -10,6 +10,19 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Cuenta con la que se entra al sistema. Hoy hay dos roles: "admin"
+/// (Administrador) y "architect" (Arquitecto); ambos tienen el mismo acceso
+/// por ahora, el rol es sólo para identificar quién hizo qué en el historial.
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Project {
   id             String   @id @default(uuid())
   name           String

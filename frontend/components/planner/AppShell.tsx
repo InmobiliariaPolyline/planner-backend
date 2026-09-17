@@ -7,8 +7,6 @@ import type { ActiveView, Notification, Project } from "@/lib/types";
 import type { Theme } from "@/hooks/useTheme";
 import { UserMenu } from "./UserMenu";
 
-const USER = { name: "Administrador", role: "Sesión de demostración" };
-
 type Crumb = { label: string; onClick?: () => void };
 
 function buildCrumbs(
@@ -101,6 +99,8 @@ export function AppShell({
   onToggleTheme,
   onDismissNotification,
   onClearNotifications,
+  userName,
+  userRole,
   onSignOut,
   children,
 }: {
@@ -112,6 +112,8 @@ export function AppShell({
   onToggleTheme: () => void;
   onDismissNotification: (id: number) => void;
   onClearNotifications: () => void;
+  userName: string;
+  userRole: string;
   onSignOut: () => void;
   children: ReactNode;
 }) {
@@ -204,7 +206,7 @@ export function AppShell({
             >
               <Icon name={theme === "light" ? "moon" : "sun"} size={18} />
             </button>
-            <UserMenu name={USER.name} role={USER.role} onSignOut={onSignOut} />
+            <UserMenu name={userName} role={userRole} onSignOut={onSignOut} />
           </div>
         </header>
 

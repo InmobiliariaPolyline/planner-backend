@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/Icon";
 
 function BrandMark({ size = "md" }: { size?: "md" | "lg" }) {
@@ -54,11 +54,24 @@ export function LoadingScreen() {
 
 export function LoginScreen({
   projectCount,
-  onEnter,
+  onLogin,
+  error,
+  loading,
 }: {
   projectCount: number;
-  onEnter: () => void;
+  onLogin: (username: string, password: string) => void;
+  error: string | null;
+  loading: boolean;
 }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!username.trim() || !password || loading) return;
+    onLogin(username.trim(), password);
+  };
+
   return (
     <main className="login">
       <section className="login-aside">
@@ -84,30 +97,51 @@ export function LoginScreen({
 
       <section className="login-panel">
         <div className="login-panel-head">
-          <span>Acceso administrativo</span>
+          <span>Acceso al sistema</span>
           <span className="status-dot">Sistema operativo</span>
         </div>
-        <div className="login-form">
+        <form className="login-form form" onSubmit={submit}>
           <p className="eyebrow">Bienvenido</p>
-          <h2>Tu espacio de trabajo está listo.</h2>
+          <h2>Inicia sesión para continuar.</h2>
           <p className="login-form-lead">
-            Entra para gestionar proyectos, equipo y fechas clave.
+            Entra con tu usuario y contraseña para gestionar proyectos, equipo y fechas clave.
           </p>
-          <div className="login-hint">
-            <span className="login-hint-icon">
-              <Icon name="arrow-right" size={16} />
-            </span>
-            <div>
-              <strong>Panel de gestión de proyectos</strong>
-              <span>Sesión de demostración</span>
-            </div>
+
+          {error && <p className="form-error">{error}</p>}
+
+          <div className="form-row">
+            <span>Usuario</span>
+            <input
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="admin"
+              disabled={loading}
+              autoFocus
+            />
           </div>
-          <button type="button" className="btn btn-primary btn-block" onClick={onEnter}>
-            Acceder al sistema
-            <Icon name="arrow-right" size={16} />
+          <div className="form-row">
+            <span>Contraseña</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="••••••••"
+              disabled={loading}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
+            disabled={loading || !username.trim() || !password}
+          >
+            {loading ? "Entrando…" : "Entrar"}
+            {!loading && <Icon name="arrow-right" size={16} />}
           </button>
-          <p className="login-note">Esta es una sesión de demostración sin autenticación real.</p>
-        </div>
+        </form>
       </section>
     </main>
   );

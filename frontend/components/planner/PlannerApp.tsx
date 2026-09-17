@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTheme } from "@/hooks/useTheme";
 import { useToasts } from "@/hooks/useToasts";
@@ -72,7 +73,8 @@ export function PlannerApp() {
   } = useNotifications();
 
   const [isBooting, setIsBooting] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const { status: authStatus, user, login, logout, loginError, loginLoading } = useAuth();
+  const authenticated = authStatus === "in";
 
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -457,9 +459,16 @@ export function PlannerApp() {
     });
   }
 
-  if (isBooting) return <LoadingScreen />;
-  if (!authenticated) {
-    return <LoginScreen projectCount={projects.length} onEnter={() => setAuthenticated(true)} />;
+  if (isBooting || authStatus === "checking") return <LoadingScreen />;
+  if (!authenticated || !user) {
+    return (
+      <LoginScreen
+        projectCount={projects.length}
+        onLogin={login}
+        error={loginError}
+        loading={loginLoading}
+      />
+    );
   }
 
   const detailTab: "overview" | "gantt" | "activity" =
@@ -477,7 +486,9 @@ export function PlannerApp() {
         onToggleTheme={toggleTheme}
         onDismissNotification={dismissNotification}
         onClearNotifications={clearNotifications}
-        onSignOut={() => setAuthenticated(false)}
+        userName={user.name}
+        userRole={user.roleLabel}
+        onSignOut={logout}
       >
         {activeView === "dashboard" && (
           <DashboardView

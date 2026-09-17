@@ -8,6 +8,7 @@ import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAccessError } from './lib/share';
 import { assertDateOrder, monthsBetween, recomputeProjectProgress } from './lib/projectMath';
 import { ACTOR_ADMIN, ACTOR_LINK, diffFields, logEvent, money, percent, pruneOldActivity, RETENTION_DAYS } from './lib/activity';
+import { requireAuth, ROLE_LABEL, signToken, verifyPassword, type Role } from './lib/auth';
 
 const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
 
@@ -55,6 +56,44 @@ app.get('/', (req: Request, res: Response) => {
 // Health check ligero para Render / monitoreo
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true });
+});
+
+// ── Autenticación ────────────────────────────────────────────────────────
+// Cupo aparte y más estricto para el login: dificulta probar contraseñas a
+// fuerza bruta sin afectar al resto de la API.
+app.use('/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false }));
+
+app.post('/auth/login', async (req: Request, res: Response) => {
+  try {
+    const username = cleanText(req.body?.username, 'username', false)?.toLowerCase();
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!username || !password) {
+      res.status(400).json({ error: 'Escribe tu usuario y tu contraseña.' });
+      return;
+    }
+    const record = await prisma.user.findUnique({ where: { username } });
+    const valid = record ? await verifyPassword(password, record.passwordHash) : false;
+    if (!record || !valid) {
+      // Mismo mensaje exista o no la cuenta: no revela qué usuarios existen.
+      res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
+      return;
+    }
+    const user = { id: record.id, username: record.username, name: record.name, role: record.role as Role };
+    res.json({ token: signToken(user), user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'No fue posible iniciar sesión. Inténtalo de nuevo en un momento.' });
+  }
+});
+
+// Exige sesión válida en todo lo demás (la pantalla de acceso, el health check
+// y los enlaces públicos de expediente quedan fuera, ver src/lib/auth.ts).
+app.use(requireAuth);
+
+// Datos del usuario ya autenticado (para restaurar la sesión al recargar).
+app.get('/auth/me', (req: Request, res: Response) => {
+  const user = req.user!;
+  res.json({ user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
 });
 
 app.get('/projects', async (req: Request, res: Response) => {
@@ -288,7 +327,7 @@ app.post('/projects/import', async (req: Request, res: Response) => {
 });
 
 /** Actualiza los datos del expediente, valida fechas y registra los cambios. */
-async function updateProjectFields(projectId: string, body: Record<string, unknown>, actor: string) {
+async function updateProjectFields(projectId: string, body: Record<string, unknown>, actor?: string) {
   const { name, startDate, endDate, budget, ownerName } = body;
   const before = await prisma.project.findUnique({ where: { id: projectId } });
   if (!before) throw new Error('Proyecto no encontrado');
@@ -326,7 +365,7 @@ async function updateProjectFields(projectId: string, body: Record<string, unkno
 
 app.patch('/projects/:id', async (req: Request, res: Response) => {
   try {
-    const project = await updateProjectFields(String(req.params.id), req.body, ACTOR_ADMIN);
+    const project = await updateProjectFields(String(req.params.id), req.body);
     res.json(project);
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar el proyecto' });
@@ -386,7 +425,7 @@ app.delete('/team-statuses/:id', async (req, res) => {
   } catch { res.status(404).json({ error: 'Estado de equipo no encontrado' }); }
 });
 
-async function createTaskForProject(projectId: string, body: Record<string, unknown>, actor: string = ACTOR_ADMIN) {
+async function createTaskForProject(projectId: string, body: Record<string, unknown>, actor?: string) {
   const start = requiredDate(body.startDate, 'startDate');
   const end = requiredDate(body.endDate, 'endDate');
   assertDateOrder(start, end);
@@ -410,7 +449,7 @@ async function createTaskForProject(projectId: string, body: Record<string, unkn
   return task;
 }
 
-async function patchTask(taskId: string, body: Record<string, unknown>, actor: string = ACTOR_ADMIN) {
+async function patchTask(taskId: string, body: Record<string, unknown>, actor?: string) {
   const existing = await prisma.task.findUnique({ where: { id: taskId } });
   if (!existing) throw new Error('Tarea no encontrada');
   const start = body.startDate !== undefined ? requiredDate(body.startDate, 'startDate') : existing.startDate;

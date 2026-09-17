@@ -1,3 +1,4 @@
+import { currentActor } from './auth';
 import { prisma } from './prisma';
 
 export type Tone = 'neutral' | 'positive' | 'negative' | 'warning';
@@ -57,7 +58,9 @@ export async function logEvent(projectId: string, input: LogInput): Promise<void
     await prisma.activityEvent.create({
       data: {
         projectId,
-        actor: input.actor ?? ACTOR_ADMIN,
+        // Si no se indica un actor explícito (p. ej. un enlace compartido),
+        // se toma el usuario autenticado de la petición en curso.
+        actor: input.actor ?? currentActor() ?? ACTOR_ADMIN,
         action: input.action,
         entity: input.entity,
         target: input.target ?? null,

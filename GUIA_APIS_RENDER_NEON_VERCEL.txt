@@ -91,15 +91,25 @@ DATABASE_URL=postgresql://USUARIO:CONTRASENA@HOST-NEON/BASE?sslmode=require&chan
 
 FRONTEND_ORIGIN=https://plannerbackend.vercel.app,http://localhost:3000
 
+JWT_SECRET=<cadena larga y aleatoria, p. ej. `openssl rand -base64 48`>
+
 Importante:
 - Node 22.12.0 coincide con la versión declarada en Render y cumple el requisito engines del package.json del backend.
 - El valor exacto de este proyecto es https://plannerbackend.vercel.app,http://localhost:3000.
 - No poner comillas alrededor del valor en Render.
-- No publicar DATABASE_URL en GitHub, Vercel ni en el navegador.
+- No publicar DATABASE_URL ni JWT_SECRET en GitHub, Vercel ni en el navegador.
 - El backend permite por defecto localhost:3000 y https://plannerbackend.vercel.app,
   pero FRONTEND_ORIGIN reemplaza esa lista cuando se configura en Render.
 - Por eso el dominio real de Vercel debe estar escrito exactamente, incluyendo https y
   sin una barra final.
+- JWT_SECRET es obligatorio desde el parche 011 (autenticación real): sin él el
+  backend no arranca. Usar el mismo valor en local (`.env`) para poder iniciar
+  sesión con `npm run dev`. Cambiarlo invalida todas las sesiones activas.
+- Tras el primer deploy con este parche (y con la migración
+  `20260917000000_add_users` ya aplicada), correr una vez
+  `npx tsx scripts/seed-users.ts` con el DATABASE_URL de destino para crear las
+  cuentas Administrador y Arquitecto (`npm run seed:users` en local). Las
+  contraseñas generadas solo se muestran esa vez en la consola.
 
 Health check para Render:
   GET /
@@ -138,6 +148,8 @@ MIGRACIONES:
     20260906120000_add_share_links tabla ShareLink (enlaces publicos).
     20260908120000_add_activity_events tabla ActivityEvent (historial del
                                    expediente).
+    20260917000000_add_users       tabla User (cuentas Administrador y
+                                   Arquitecto, autenticacion real).
 - La base original de Neon se creo con `prisma db push`. Para que Prisma marque
   la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
   sola vez con la DATABASE_URL de Neon:

@@ -43,6 +43,11 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 - `010-import-export-retencion-avisos.md`: importar/exportar expediente e
   historial en Excel y PDF, retención del historial a 1 año + 2 semanas
   (borrado automático), y avisos flotantes verde/rojo con mensajes claros.
+- `011-autenticacion-de-usuarios.md`: autenticación real con usuario y
+  contraseña (JWT), dos cuentas — Administrador y Arquitecto —, y el
+  historial ahora registra al usuario autenticado en vez de un valor fijo.
+  **Requiere `JWT_SECRET`, aplicar la migración `20260917000000_add_users` y
+  correr `npm run seed:users`.**
 
 ## Cambios mayores (no son parches)
 
@@ -62,5 +67,6 @@ No se modifica la cadena de dependencias que `npm audit` reporto con tres
 vulnerabilidades altas. La correccion automatica propone bajar Prisma 7 a Prisma
 6, por lo que se esperara una actualizacion compatible antes de actuar.
 
-Sigue pendiente la autenticacion real: la pantalla de acceso y la API no validan
-identidad todavia.
+La autenticación real ya está implementada (ver `011-autenticacion-de-usuarios.md`),
+pero falta que el operador configure `JWT_SECRET` en Render, aplique la
+migración `20260917000000_add_users` y corra `npm run seed:users` contra Neon.

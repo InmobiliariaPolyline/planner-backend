@@ -29,6 +29,19 @@ export function onServerWaking(listener: (() => void) | null) {
   wakingListener = listener;
 }
 
+// Token de sesión (JWT). Vive en memoria; quien inicia sesión lo guarda además
+// en localStorage (ver hooks/useAuth.ts) para no perderlo al recargar.
+let authToken: string | null = null;
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+/** Se llama cuando la API responde 401 (sesión caducada o inválida). */
+let unauthorizedListener: (() => void) | null = null;
+export function onUnauthorized(listener: (() => void) | null) {
+  unauthorizedListener = listener;
+}
+
 type Options = RequestInit & { failMessage?: string; retry?: boolean };
 
 async function request<T>(path: string, options: Options = {}): Promise<T> {
@@ -45,7 +58,11 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
     try {
       response = await fetch(`${API_URL}${path}`, {
         ...init,
-        headers: init.body ? { "Content-Type": "application/json", ...init.headers } : init.headers,
+        headers: {
+          ...(init.body ? { "Content-Type": "application/json" } : {}),
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          ...init.headers,
+        },
       });
     } catch {
       if (attempt < attempts - 1) continue;
@@ -54,6 +71,11 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
 
     // 502/503/504 => el servidor todavía está arrancando; reintentar
     if ([502, 503, 504].includes(response.status) && attempt < attempts - 1) continue;
+
+    if (response.status === 401) {
+      unauthorizedListener?.();
+      throw new Error("Tu sesión caducó. Vuelve a iniciar sesión.");
+    }
 
     if (!response.ok) {
       let serverMessage = "";
@@ -73,7 +95,18 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
 
 const json = (data: unknown) => JSON.stringify(data);
 
+export type SessionUser = { id: string; username: string; name: string; role: string; roleLabel: string };
+
 export const api = {
+  // Sesión
+  login: (username: string, password: string) =>
+    request<{ token: string; user: SessionUser }>("/auth/login", {
+      method: "POST",
+      body: json({ username, password }),
+      failMessage: "No fue posible iniciar sesión",
+    }),
+  me: () => request<{ user: SessionUser }>("/auth/me", { failMessage: "No fue posible validar la sesión" }),
+
   // Proyectos
   listProjects: () => request<Project[]>("/projects", { failMessage: "API no disponible", retry: true }),
   getProject: (id: string) => request<Project>(`/projects/${id}`, { retry: true }),
