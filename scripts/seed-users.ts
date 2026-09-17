@@ -12,8 +12,9 @@
 //   ARCHITECT_USERNAME=arquitecto ARCHITECT_PASSWORD=otra-contraseña ^
 //   npx tsx scripts/seed-users.ts
 //
-// Las contraseñas elegidas a mano deben tener al menos 8 caracteres. Si un
-// usuario ya existe, este script no lo toca (no cambia su contraseña).
+// Se recomiendan contraseñas de al menos 8 caracteres; con menos, el script
+// avisa pero igual las acepta. Si un usuario ya existe, este script no lo
+// toca (no cambia su contraseña).
 
 import 'dotenv/config';
 import { randomInt } from 'node:crypto';
@@ -28,7 +29,9 @@ const ROLE_LABEL: Record<Role, string> = { admin: 'Administrador', architect: 'A
 function ownPassword(envVar: string): string | undefined {
   const value = process.env[envVar]?.trim();
   if (!value) return undefined;
-  if (value.length < 8) throw new Error(`${envVar} debe tener al menos 8 caracteres.`);
+  if (value.length < 8) {
+    console.warn(`Aviso: ${envVar} tiene menos de 8 caracteres — es fácil de adivinar.`);
+  }
   return value;
 }
 
