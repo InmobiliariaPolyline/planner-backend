@@ -22,9 +22,12 @@ en el historial).
   usuario autenticado de la petición en curso (vía `AsyncLocalStorage`), sin
   tener que tocar cada endpoint uno por uno.
 - **`scripts/seed-users.ts`** (`npm run seed:users`): crea las cuentas
-  `admin`/Administrador y `arquitecto`/Arquitecto si no existen todavía, con
-  una contraseña aleatoria que se imprime **una sola vez** en la consola de
-  quien lo ejecuta. No se guarda en ningún archivo ni se sube al repositorio.
+  `admin`/Administrador y `arquitecto`/Arquitecto si no existen todavía. Por
+  defecto genera una contraseña aleatoria; si quien lo ejecuta prefiere elegir
+  la contraseña de antemano puede pasar `ADMIN_PASSWORD=...` /
+  `ARCHITECT_PASSWORD=...` (mínimo 8 caracteres). En ambos casos se imprime
+  **una sola vez** en la consola de quien lo ejecuta — no se guarda en ningún
+  archivo ni se sube al repositorio.
 
 ## Frontend
 

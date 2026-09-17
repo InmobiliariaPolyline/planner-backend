@@ -1,13 +1,19 @@
 // Crea las cuentas de acceso al sistema (Administrador y Arquitecto) si todavía
-// no existen. Genera una contraseña aleatoria y segura para cada una y las
-// muestra UNA sola vez en la consola: no se guardan en ningún archivo ni se
-// suben al repositorio.
+// no existen. Si no se indica una contraseña, genera una aleatoria y segura;
+// en cualquier caso se muestra UNA sola vez en la consola: no se guardan en
+// ningún archivo ni se suben al repositorio.
 //
 // Uso (con la DATABASE_URL de destino en el entorno o en .env):
 //   npx tsx scripts/seed-users.ts
 //
-// Para elegir los nombres de usuario:
-//   ADMIN_USERNAME=admin ARCHITECT_USERNAME=arquitecto npx tsx scripts/seed-users.ts
+// Para elegir tú mismo usuario y contraseña (recomendado si quieres saberla
+// de antemano en vez de que sea aleatoria):
+//   ADMIN_USERNAME=admin ADMIN_PASSWORD=tu-contraseña ^
+//   ARCHITECT_USERNAME=arquitecto ARCHITECT_PASSWORD=otra-contraseña ^
+//   npx tsx scripts/seed-users.ts
+//
+// Las contraseñas elegidas a mano deben tener al menos 8 caracteres. Si un
+// usuario ya existe, este script no lo toca (no cambia su contraseña).
 
 import 'dotenv/config';
 import { randomInt } from 'node:crypto';
@@ -15,16 +21,29 @@ import { hashPassword } from '../src/lib/auth';
 import { pool, prisma } from '../src/lib/prisma';
 
 type Role = 'admin' | 'architect';
-type Seed = { username: string; name: string; role: Role };
+type Seed = { username: string; name: string; role: Role; password?: string };
 
 const ROLE_LABEL: Record<Role, string> = { admin: 'Administrador', architect: 'Arquitecto' };
 
+function ownPassword(envVar: string): string | undefined {
+  const value = process.env[envVar]?.trim();
+  if (!value) return undefined;
+  if (value.length < 8) throw new Error(`${envVar} debe tener al menos 8 caracteres.`);
+  return value;
+}
+
 const USERS: Seed[] = [
-  { username: process.env.ADMIN_USERNAME?.trim().toLowerCase() || 'admin', name: 'Administrador', role: 'admin' },
+  {
+    username: process.env.ADMIN_USERNAME?.trim().toLowerCase() || 'admin',
+    name: 'Administrador',
+    role: 'admin',
+    password: ownPassword('ADMIN_PASSWORD'),
+  },
   {
     username: process.env.ARCHITECT_USERNAME?.trim().toLowerCase() || 'arquitecto',
     name: process.env.ARCHITECT_NAME?.trim() || 'Arquitecto',
     role: 'architect',
+    password: ownPassword('ARCHITECT_PASSWORD'),
   },
 ];
 
@@ -45,7 +64,7 @@ async function main() {
       console.log(`- "${seed.username}" ya existe: no se toca.`);
       continue;
     }
-    const password = generatePassword();
+    const password = seed.password ?? generatePassword();
     const passwordHash = await hashPassword(password);
     await prisma.user.create({
       data: { username: seed.username, passwordHash, name: seed.name, role: seed.role },
