@@ -12,6 +12,24 @@ function money(value: number): string {
   return value.toLocaleString("es", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
+function StatusBadge({ online }: { online: boolean }) {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        padding: "2px var(--space-2)",
+        borderRadius: "var(--radius-pill)",
+        fontSize: "var(--text-xs)",
+        fontWeight: 600,
+        background: online ? "var(--success-subtle)" : "var(--surface-3)",
+        color: online ? "var(--success-on-subtle)" : "var(--text-secondary)",
+      }}
+    >
+      {online ? "En línea" : "Desconectado"}
+    </span>
+  );
+}
+
 function UserDashboardModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [data, setData] = useState<UserDashboard | null>(null);
   const [error, setError] = useState("");
@@ -139,9 +157,10 @@ export function UsersView({ onlineIds, presenceReady }: { onlineIds: Set<string>
                       <strong>{user.name}</strong> · {user.roleLabel}
                     </span>
                   </button>
-                  <span className="catalog-inuse">
-                    {user.username} · {online ? "En línea" : "Desconectado"}
+                  <span className="hero-lead" style={{ flexShrink: 0 }}>
+                    {user.username}
                   </span>
+                  <StatusBadge online={online} />
                   <Icon name="arrow-right" size={14} />
                 </li>
               );
