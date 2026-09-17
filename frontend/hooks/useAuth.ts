@@ -30,6 +30,7 @@ export function useAuth() {
     readStoredToken() ? "checking" : "out",
   );
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -37,6 +38,7 @@ export function useAuth() {
     setAuthToken(null);
     persistToken(null);
     setUser(null);
+    setToken(null);
     setStatus("out");
   }, []);
 
@@ -53,6 +55,7 @@ export function useAuth() {
       .me()
       .then(({ user: sessionUser }) => {
         setUser(sessionUser);
+        setToken(token);
         setStatus("in");
       })
       .catch(() => {
@@ -66,10 +69,11 @@ export function useAuth() {
     setLoginLoading(true);
     setLoginError(null);
     try {
-      const { token, user: sessionUser } = await api.login(username, password);
-      setAuthToken(token);
-      persistToken(token);
+      const { token: newToken, user: sessionUser } = await api.login(username, password);
+      setAuthToken(newToken);
+      persistToken(newToken);
       setUser(sessionUser);
+      setToken(newToken);
       setStatus("in");
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "No fue posible iniciar sesión");
@@ -78,5 +82,5 @@ export function useAuth() {
     }
   }, []);
 
-  return { status, user, login, logout, loginError, loginLoading };
+  return { status, user, token, login, logout, loginError, loginLoading };
 }

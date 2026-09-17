@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { friendlyError } from "@/lib/errors";
 import { SelectOrCreate } from "@/components/ui/SelectOrCreate";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
-import type { TeamStatusOption } from "@/lib/types";
+import type { BasicUser, TeamStatusOption } from "@/lib/types";
 
 const textRules: Rule[] = [
   { label: "Obligatorio", test: (v) => v.trim().length > 0 },
@@ -15,17 +15,21 @@ const textRules: Rule[] = [
 
 export function MemberFormModal({
   statuses,
+  accounts = [],
   onCreateStatus,
   onSubmit,
   onClose,
 }: {
   statuses: TeamStatusOption[];
+  /** Cuentas del sistema a las que se puede vincular el participante (opcional). */
+  accounts?: BasicUser[];
   onCreateStatus: (type: string) => Promise<TeamStatusOption>;
-  onSubmit: (data: { name: string; teamStatusId: string }) => Promise<void>;
+  onSubmit: (data: { name: string; teamStatusId: string; userId?: string | null }) => Promise<void>;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
   const [statusId, setStatusId] = useState(statuses[0]?.id ?? "");
+  const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +45,7 @@ export function MemberFormModal({
     }
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), teamStatusId: statusId });
+      await onSubmit({ name: name.trim(), teamStatusId: statusId, userId: userId || null });
     } catch (submitError) {
       setError(friendlyError(submitError));
       setSaving(false);
@@ -74,6 +78,22 @@ export function MemberFormModal({
           required
           showErrors={showErrors}
         />
+        {accounts.length > 0 && (
+          <div className="form-row">
+            <span>Cuenta del sistema (opcional)</span>
+            <select value={userId} onChange={(event) => setUserId(event.target.value)}>
+              <option value="">Ninguna — solo un nombre</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.roleLabel})
+                </option>
+              ))}
+            </select>
+            <p className="hero-lead" style={{ marginTop: "var(--space-1)" }}>
+              Si vinculas una cuenta, esa persona podrá ver este expediente al iniciar sesión.
+            </p>
+          </div>
+        )}
         {showErrors && invalid && <p className="form-error">Completa el nombre y el estado.</p>}
         {error && <p className="form-error">{error}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={saving}>

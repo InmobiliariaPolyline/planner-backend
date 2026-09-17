@@ -3,7 +3,9 @@
 
 import type {
   ActivityEvent,
+  BasicUser,
   DriveLink,
+  ManagedUser,
   Milestone,
   PerformanceMetric,
   Project,
@@ -13,9 +15,15 @@ import type {
   SharedPayload,
   TaskDetail,
   TeamMember,
+  UserDashboard,
 } from "./types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+/** URL de WebSocket equivalente a API_URL (http→ws, https→wss). */
+export function wsUrl(path: string): string {
+  return `${API_URL.replace(/^http/, "ws")}${path}`;
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -147,10 +155,16 @@ export const api = {
     request<void>(`/technical-areas/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar el área" }),
 
   // Participantes
-  createTeamMember: (projectId: string, data: { name: string; teamStatusId: string }) =>
+  createTeamMember: (projectId: string, data: { name: string; teamStatusId: string; userId?: string | null }) =>
     request<TeamMember>(`/projects/${projectId}/team-members`, { method: "POST", body: json(data), failMessage: "No fue posible añadir al participante" }),
   deleteTeamMember: (id: string) =>
     request<void>(`/team-members/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar al participante" }),
+
+  // Cuentas del sistema
+  listBasicUsers: () => request<BasicUser[]>("/users/basic", { failMessage: "No fue posible cargar las cuentas" }),
+  listUsers: () => request<ManagedUser[]>("/users", { failMessage: "No fue posible cargar los usuarios" }),
+  getUserDashboard: (id: string) =>
+    request<UserDashboard>(`/users/${id}/dashboard`, { failMessage: "No fue posible cargar el panel del usuario" }),
 
   // Hitos
   createMilestone: (projectId: string, data: { description: string; date: string }) =>

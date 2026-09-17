@@ -150,6 +150,9 @@ MIGRACIONES:
                                    expediente).
     20260917000000_add_users       tabla User (cuentas Administrador y
                                    Arquitecto, autenticacion real).
+    20260917010000_add_project_owner_and_member_user  Project.createdById y
+                                   TeamMember.userId (visibilidad por usuario
+                                   y participantes vinculados a una cuenta).
 - La base original de Neon se creo con `prisma db push`. Para que Prisma marque
   la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
   sola vez con la DATABASE_URL de Neon:

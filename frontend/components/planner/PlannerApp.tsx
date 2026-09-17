@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
+import { usePresence } from "@/hooks/usePresence";
 import { useTheme } from "@/hooks/useTheme";
 import { useToasts } from "@/hooks/useToasts";
 import { api, onServerWaking } from "@/lib/api";
@@ -11,6 +12,7 @@ import { parseActivityFile, parseProjectFile } from "@/lib/transfer";
 import { normalizeTasks, toTaskDetail } from "@/lib/normalize";
 import type {
   ActiveView,
+  BasicUser,
   GanttMode,
   Milestone,
   Project,
@@ -37,6 +39,7 @@ import { LoadingScreen, LoginScreen } from "./Screens";
 import { SettingsView } from "./SettingsView";
 import { ShareManager } from "./ShareManager";
 import { TaskFormModal } from "./TaskFormModal";
+import { UsersView } from "./UsersView";
 
 type Modal =
   | null
@@ -73,8 +76,10 @@ export function PlannerApp() {
   } = useNotifications();
 
   const [isBooting, setIsBooting] = useState(true);
-  const { status: authStatus, user, login, logout, loginError, loginLoading } = useAuth();
+  const { status: authStatus, user, token, login, logout, loginError, loginLoading } = useAuth();
   const authenticated = authStatus === "in";
+  const { onlineIds, ready: presenceReady } = usePresence(token);
+  const [basicUsers, setBasicUsers] = useState<BasicUser[]>([]);
 
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -116,6 +121,7 @@ export function PlannerApp() {
       });
     api.listTechnicalAreas().then(setTechnicalAreas).catch(() => undefined);
     api.listTeamStatuses().then(setTeamStatuses).catch(() => undefined);
+    api.listBasicUsers().then(setBasicUsers).catch(() => undefined);
   }, [authenticated, toastError]);
 
   const setProjectEverywhere = useCallback((updated: Project) => {
@@ -300,7 +306,7 @@ export function PlannerApp() {
   }
 
   // ── Participantes ────────────────────────────────────────────────────────
-  async function addMember(data: { name: string; teamStatusId: string }) {
+  async function addMember(data: { name: string; teamStatusId: string; userId?: string | null }) {
     if (!selectedProject) return;
     await api.createTeamMember(selectedProject.id, data);
     await refreshProject(selectedProject.id);
@@ -488,6 +494,7 @@ export function PlannerApp() {
         onClearNotifications={clearNotifications}
         userName={user.name}
         userRole={user.roleLabel}
+        isAdmin={user.role === "admin"}
         onSignOut={logout}
       >
         {activeView === "dashboard" && (
@@ -531,6 +538,10 @@ export function PlannerApp() {
         )}
 
         {activeView === "guide" && <GuideView onNavigate={navigate} />}
+
+        {activeView === "users" && user.role === "admin" && (
+          <UsersView onlineIds={onlineIds} presenceReady={presenceReady} />
+        )}
 
         {(activeView === "overview" || activeView === "gantt" || activeView === "activity") && selectedProject && (
           <ProjectDetailView
@@ -616,6 +627,7 @@ export function PlannerApp() {
       {modal?.kind === "member" && selectedProject && (
         <MemberFormModal
           statuses={teamStatuses}
+          accounts={basicUsers}
           onCreateStatus={createTeamStatus}
           onSubmit={addMember}
           onClose={closeModal}

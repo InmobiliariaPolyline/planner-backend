@@ -63,6 +63,8 @@ export type TeamMember = {
   name: string;
   teamStatusId: string;
   teamStatus: { type: string };
+  userId?: string | null;
+  user?: { id: string; name: string; role: string } | null;
 };
 
 export type Project = {
@@ -74,6 +76,8 @@ export type Project = {
   durationMonths: number;
   progress: number;
   ownerName: string;
+  createdById?: string | null;
+  createdBy?: { id: string; name: string; role: string } | null;
   tasks?: RawTask[];
   milestones?: Milestone[];
   teamMembers?: TeamMember[];
@@ -110,7 +114,8 @@ export type ActiveView =
   | "gantt"
   | "activity"
   | "settings"
-  | "guide";
+  | "guide"
+  | "users";
 
 export type Notification = {
   id: number;
@@ -153,4 +158,33 @@ export type ShareLink = {
 export type SharedPayload = {
   role: ShareRole;
   project: Project;
+};
+
+/** Cuenta mínima, para vincular participantes del equipo (GET /users/basic). */
+export type BasicUser = { id: string; name: string; roleLabel: string };
+
+/** Usuario del módulo de Administrador (GET /users). */
+export type ManagedUser = {
+  id: string;
+  username: string;
+  name: string;
+  role: string;
+  roleLabel: string;
+  online: boolean;
+  createdAt: string;
+};
+
+export type UserProjectSummary = {
+  id: string;
+  name: string;
+  progress: number;
+  startDate: string;
+  endDate: string;
+  budget: number;
+  isCreator: boolean;
+};
+
+export type UserDashboard = {
+  user: ManagedUser;
+  projects: UserProjectSummary[];
 };

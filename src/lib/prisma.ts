@@ -20,7 +20,9 @@ export const projectInclude = {
   milestones: true,
   teamMembers: {
     include: {
-      teamStatus: true
+      teamStatus: true,
+      user: { select: { id: true, name: true, role: true } }
     }
-  }
+  },
+  createdBy: { select: { id: true, name: true, role: true } }
 };

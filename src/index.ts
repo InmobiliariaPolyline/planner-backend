@@ -9,6 +9,8 @@ import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAcc
 import { assertDateOrder, monthsBetween, recomputeProjectProgress } from './lib/projectMath';
 import { ACTOR_ADMIN, ACTOR_LINK, diffFields, logEvent, money, percent, pruneOldActivity, RETENTION_DAYS } from './lib/activity';
 import { requireAuth, ROLE_LABEL, signToken, verifyPassword, type Role } from './lib/auth';
+import { assertProjectAccess, assertTaskAccess, ProjectAccessError, respondError, visibleProjectsWhere } from './lib/access';
+import { attachPresence, isOnline } from './lib/presence';
 
 const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
 
@@ -96,9 +98,84 @@ app.get('/auth/me', (req: Request, res: Response) => {
   res.json({ user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
 });
 
+// ── Usuarios (solo Administrador) ───────────────────────────────────────────
+
+function requireAdmin(req: Request, res: Response): boolean {
+  if (req.user!.role !== 'admin') {
+    res.status(403).json({ error: 'Sólo el Administrador puede ver esto.' });
+    return false;
+  }
+  return true;
+}
+
+// Lista mínima de cuentas (nombre y rol) para vincular participantes del
+// equipo a una cuenta real; a diferencia de /users, no requiere ser
+// Administrador (no expone usuario ni estado de conexión).
+app.get('/users/basic', async (req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, role: true } });
+    res.json(users.map((u) => ({ id: u.id, name: u.name, roleLabel: ROLE_LABEL[u.role as Role] ?? u.role })));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener las cuentas' });
+  }
+});
+
+app.get('/users', async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } });
+    res.json(users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      role: u.role,
+      roleLabel: ROLE_LABEL[u.role as Role] ?? u.role,
+      online: isOnline(u.id),
+      createdAt: u.createdAt,
+    })));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener los usuarios' });
+  }
+});
+
+// Panel ligero de un usuario: sus expedientes (creados o donde participa).
+app.get('/users/:id/dashboard', async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const userId = String(req.params.id);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
+    const projects = await prisma.project.findMany({
+      where: { OR: [{ createdById: userId }, { teamMembers: { some: { userId } } }] },
+      select: { id: true, name: true, progress: true, startDate: true, endDate: true, budget: true, createdById: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        roleLabel: ROLE_LABEL[user.role as Role] ?? user.role,
+        online: isOnline(user.id),
+      },
+      projects: projects.map((p) => ({ ...p, isCreator: p.createdById === userId })),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener el panel del usuario' });
+  }
+});
+
 app.get('/projects', async (req: Request, res: Response) => {
   try {
-    const projects = await prisma.project.findMany({ include: projectInclude, orderBy: { createdAt: 'desc' } });
+    const projects = await prisma.project.findMany({
+      where: visibleProjectsWhere(req.user!),
+      include: projectInclude,
+      orderBy: { createdAt: 'desc' },
+    });
     res.json(projects);
   } catch (error) {
     console.error(error);
@@ -109,6 +186,7 @@ app.get('/projects', async (req: Request, res: Response) => {
 app.get('/projects/:id', async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params.id);
+    await assertProjectAccess(req.user!, projectId);
     const project = await prisma.project.findUnique({ where: { id: projectId }, include: projectInclude });
     if (!project) {
       res.status(404).json({ error: 'Proyecto no encontrado' });
@@ -116,14 +194,14 @@ app.get('/projects/:id', async (req: Request, res: Response) => {
     }
     res.json(project);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener el proyecto' });
+    respondError(error, res, 500, 'Error al obtener el proyecto');
   }
 });
 
 // Historial de sucesos del expediente (más reciente primero).
 app.get('/projects/:projectId/activity', async (req: Request, res: Response) => {
   try {
+    await assertProjectAccess(req.user!, String(req.params.projectId));
     void pruneOldActivity();
     const events = await prisma.activityEvent.findMany({
       where: { projectId: String(req.params.projectId) },
@@ -132,8 +210,7 @@ app.get('/projects/:projectId/activity', async (req: Request, res: Response) => 
     });
     res.json(events);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener el historial' });
+    respondError(error, res, 500, 'Error al obtener el historial');
   }
 });
 
@@ -143,6 +220,7 @@ app.get('/projects/:projectId/activity', async (req: Request, res: Response) => 
 app.post('/projects/:projectId/activity/import', async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
+    await assertProjectAccess(req.user!, projectId);
     const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
     if (!project) { res.status(404).json({ error: 'Expediente no encontrado' }); return; }
 
@@ -181,8 +259,7 @@ app.post('/projects/:projectId/activity/import', async (req: Request, res: Respo
     if (toCreate.length) await prisma.activityEvent.createMany({ data: toCreate as never });
     res.json({ imported: toCreate.length, skipped: rows.length - toCreate.length });
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible importar el historial' });
+    respondError(error, res, 400, 'No fue posible importar el historial');
   }
 });
 
@@ -200,7 +277,8 @@ app.post('/projects', async (req: Request, res: Response) => {
         budget: requiredNumber(budget, 'budget'),
         durationMonths: monthsBetween(start, end),
         progress: 0,
-        ownerName: cleanText(ownerName, 'ownerName')!
+        ownerName: cleanText(ownerName, 'ownerName')!,
+        createdById: req.user!.id,
       },
       include: projectInclude
     });
@@ -255,6 +333,7 @@ app.post('/projects/import', async (req: Request, res: Response) => {
         durationMonths: monthsBetween(start, end),
         progress: 0,
         ownerName: cleanText(p.ownerName, 'ownerName')!,
+        createdById: req.user!.id,
       },
     });
 
@@ -365,10 +444,11 @@ async function updateProjectFields(projectId: string, body: Record<string, unkno
 
 app.patch('/projects/:id', async (req: Request, res: Response) => {
   try {
+    await assertProjectAccess(req.user!, String(req.params.id));
     const project = await updateProjectFields(String(req.params.id), req.body);
     res.json(project);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar el proyecto' });
+    respondError(error, res, 400, 'Error al actualizar el proyecto');
   }
 });
 
@@ -385,10 +465,11 @@ async function buildProjectDatePatch(projectId: string, startDate: unknown, endD
 
 app.delete('/projects/:id', async (req: Request, res: Response) => {
   try {
+    await assertProjectAccess(req.user!, String(req.params.id));
     await prisma.project.delete({ where: { id: String(req.params.id) } });
     res.status(204).send();
   } catch (error) {
-    res.status(404).json({ error: 'Proyecto no encontrado' });
+    respondError(error, res, 404, 'Proyecto no encontrado');
   }
 });
 
@@ -495,14 +576,16 @@ async function patchTask(taskId: string, body: Record<string, unknown>, actor?: 
 
 app.post('/projects/:projectId/tasks', async (req, res) => {
   try {
+    await assertProjectAccess(req.user!, String(req.params.projectId));
     res.status(201).json(await createTaskForProject(String(req.params.projectId), req.body));
-  } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear la tarea' }); }
+  } catch (error) { respondError(error, res, 400, 'Error al crear la tarea'); }
 });
 
 app.delete('/tasks/:id', async (req, res) => {
   try {
     const task = await prisma.task.findUnique({ where: { id: String(req.params.id) }, select: { projectId: true, name: true } });
     if (!task) { res.status(404).json({ error: 'Tarea no encontrada' }); return; }
+    await assertProjectAccess(req.user!, task.projectId);
     await prisma.task.delete({ where: { id: String(req.params.id) } });
     await recomputeProjectProgress(task.projectId);
     await logEvent(task.projectId, {
@@ -519,7 +602,16 @@ app.delete('/tasks/:id', async (req, res) => {
 app.post('/projects/:projectId/team-members', async (req, res) => {
   try {
     const projectId = String(req.params.projectId);
-    const member = await prisma.teamMember.create({ data: { name: cleanText(req.body.name, 'name')!, projectId, teamStatusId: cleanText(req.body.teamStatusId, 'teamStatusId')! }, include: { teamStatus: true } });
+    await assertProjectAccess(req.user!, projectId);
+    const userId = cleanText(req.body.userId, 'userId', false) ?? null;
+    if (userId) {
+      const linked = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (!linked) throw new Error('La cuenta seleccionada no existe.');
+    }
+    const member = await prisma.teamMember.create({
+      data: { name: cleanText(req.body.name, 'name')!, projectId, teamStatusId: cleanText(req.body.teamStatusId, 'teamStatusId')!, userId },
+      include: { teamStatus: true, user: { select: { id: true, name: true, role: true } } },
+    });
     await logEvent(projectId, {
       action: 'member.add',
       entity: 'participante',
@@ -529,12 +621,13 @@ app.post('/projects/:projectId/team-members', async (req, res) => {
     });
     res.status(201).json(member);
   }
-  catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al añadir participante' }); }
+  catch (error) { respondError(error, res, 400, 'Error al añadir participante'); }
 });
 app.delete('/team-members/:id', async (req, res) => {
   try {
     const member = await prisma.teamMember.findUnique({ where: { id: String(req.params.id) }, select: { projectId: true, name: true } });
     if (!member) { res.status(404).json({ error: 'Participante no encontrado' }); return; }
+    await assertProjectAccess(req.user!, member.projectId);
     await prisma.teamMember.delete({ where: { id: String(req.params.id) } });
     await logEvent(member.projectId, {
       action: 'member.remove',
@@ -545,13 +638,14 @@ app.delete('/team-members/:id', async (req, res) => {
     });
     res.status(204).send();
   }
-  catch (_error) { res.status(404).json({ error: 'Participante no encontrado' }); }
+  catch (error) { respondError(error, res, 404, 'Participante no encontrado'); }
 });
 
 app.post('/projects/:projectId/milestones', async (req: Request, res: Response) => {
   try {
     const { description, date } = req.body;
     const projectId = String(req.params.projectId);
+    await assertProjectAccess(req.user!, projectId);
     const milestone = await prisma.milestone.create({
       data: { description: cleanText(description, 'description')!, date: requiredDate(date, 'date'), projectId }
     });
@@ -564,7 +658,7 @@ app.post('/projects/:projectId/milestones', async (req: Request, res: Response) 
     });
     res.status(201).json(milestone);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el hito' });
+    respondError(error, res, 400, 'Error al crear el hito');
   }
 });
 
@@ -572,6 +666,7 @@ app.patch('/milestones/:id', async (req, res) => {
   try {
     const before = await prisma.milestone.findUnique({ where: { id: String(req.params.id) } });
     if (!before) { res.status(404).json({ error: 'Hito no encontrado' }); return; }
+    await assertProjectAccess(req.user!, before.projectId);
     const milestone = await prisma.milestone.update({ where: { id: String(req.params.id) }, data: {
       ...(req.body.description !== undefined && { description: cleanText(req.body.description, 'description') }),
       ...(req.body.date !== undefined && { date: requiredDate(req.body.date, 'date') })
@@ -591,13 +686,14 @@ app.patch('/milestones/:id', async (req, res) => {
       });
     }
     res.json(milestone);
-  } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar el hito' }); }
+  } catch (error) { respondError(error, res, 400, 'Error al actualizar el hito'); }
 });
 
 app.delete('/milestones/:id', async (req, res) => {
   try {
     const milestone = await prisma.milestone.findUnique({ where: { id: String(req.params.id) }, select: { projectId: true, description: true } });
     if (!milestone) { res.status(404).json({ error: 'Hito no encontrado' }); return; }
+    await assertProjectAccess(req.user!, milestone.projectId);
     await prisma.milestone.delete({ where: { id: String(req.params.id) } });
     await logEvent(milestone.projectId, {
       action: 'milestone.remove',
@@ -613,9 +709,10 @@ app.delete('/milestones/:id', async (req, res) => {
 
 app.patch('/tasks/:id', async (req: Request, res: Response) => {
   try {
+    await assertTaskAccess(req.user!, String(req.params.id));
     res.json(await patchTask(String(req.params.id), req.body));
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Error al actualizar la tarea' });
+    respondError(error, res, 400, 'Error al actualizar la tarea');
   }
 });
 
@@ -623,6 +720,7 @@ app.post('/tasks/:taskId/performance-metrics', async (req, res) => {
   try {
     const { unit, ratePerDay, divisor } = req.body;
     const taskId = String(req.params.taskId);
+    await assertTaskAccess(req.user!, taskId);
     const metric = await prisma.performanceMetric.create({ data: {
       unit: cleanText(unit, 'unit')!, ratePerDay: requiredNumber(ratePerDay, 'ratePerDay'), divisor: requiredNumber(divisor, 'divisor', 1), taskId
     } });
@@ -637,13 +735,14 @@ app.post('/tasks/:taskId/performance-metrics', async (req, res) => {
       });
     }
     res.status(201).json(metric);
-  } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear la métrica' }); }
+  } catch (error) { respondError(error, res, 400, 'Error al crear la métrica'); }
 });
 
 app.delete('/performance-metrics/:id', async (req, res) => {
   try {
     const metric = await prisma.performanceMetric.findUnique({ where: { id: String(req.params.id) }, include: { task: { select: { projectId: true, name: true } } } });
     if (!metric) { res.status(404).json({ error: 'Métrica no encontrada' }); return; }
+    await assertProjectAccess(req.user!, metric.task.projectId);
     await prisma.performanceMetric.delete({ where: { id: String(req.params.id) } });
     await logEvent(metric.task.projectId, {
       action: 'metric.remove',
@@ -662,6 +761,7 @@ app.post('/tasks/:taskId/drive-links', async (req, res) => {
     const url = cleanText(req.body.url, 'url')!;
     if (!/^https?:\/\//.test(url)) throw new Error('url debe ser una dirección HTTP válida');
     const taskId = String(req.params.taskId);
+    await assertTaskAccess(req.user!, taskId);
     const link = await prisma.driveLink.create({ data: { url, taskId } });
     const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true, name: true } });
     if (task) {
@@ -674,13 +774,14 @@ app.post('/tasks/:taskId/drive-links', async (req, res) => {
       });
     }
     res.status(201).json(link);
-  } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Error al crear el enlace' }); }
+  } catch (error) { respondError(error, res, 400, 'Error al crear el enlace'); }
 });
 
 app.delete('/drive-links/:id', async (req, res) => {
   try {
     const link = await prisma.driveLink.findUnique({ where: { id: String(req.params.id) }, include: { task: { select: { projectId: true, name: true } } } });
     if (!link) { res.status(404).json({ error: 'Enlace no encontrado' }); return; }
+    await assertProjectAccess(req.user!, link.task.projectId);
     await prisma.driveLink.delete({ where: { id: String(req.params.id) } });
     await logEvent(link.task.projectId, {
       action: 'link.remove',
@@ -699,7 +800,7 @@ app.delete('/drive-links/:id', async (req, res) => {
 // expediente se borran sus enlaces por cascada.
 
 function handleShareError(error: unknown, res: Response) {
-  if (error instanceof ShareAccessError) {
+  if (error instanceof ShareAccessError || error instanceof ProjectAccessError) {
     res.status(error.status).json({ error: error.message });
     return;
   }
@@ -712,6 +813,7 @@ function handleShareError(error: unknown, res: Response) {
 
 app.get('/projects/:projectId/share-links', async (req, res) => {
   try {
+    await assertProjectAccess(req.user!, String(req.params.projectId));
     const links = await prisma.shareLink.findMany({
       where: { projectId: String(req.params.projectId) },
       orderBy: { createdAt: 'asc' },
@@ -727,6 +829,7 @@ const roleText = (role: string) => (role === 'editor' ? 'edición' : 'solo lectu
 app.post('/projects/:projectId/share-links', async (req: Request, res: Response) => {
   try {
     const projectId = String(req.params.projectId);
+    await assertProjectAccess(req.user!, projectId);
     const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
     if (!project) {
       res.status(404).json({ error: 'Proyecto no encontrado' });
@@ -757,6 +860,7 @@ app.patch('/share-links/:id', async (req: Request, res: Response) => {
   try {
     const before = await prisma.shareLink.findUnique({ where: { id: String(req.params.id) } });
     if (!before) { res.status(404).json({ error: 'Enlace no encontrado' }); return; }
+    await assertProjectAccess(req.user!, before.projectId);
     const data: Record<string, unknown> = {};
     if (req.body.rotate) data.token = newShareToken();
     if (req.body.role !== undefined) data.role = parseRole(req.body.role);
@@ -787,6 +891,7 @@ app.patch('/share-links/:id', async (req: Request, res: Response) => {
 app.delete('/share-links/:id', async (req: Request, res: Response) => {
   try {
     const link = await prisma.shareLink.findUnique({ where: { id: String(req.params.id) }, select: { projectId: true, role: true } });
+    if (link) await assertProjectAccess(req.user!, link.projectId);
     await prisma.shareLink.delete({ where: { id: String(req.params.id) } });
     if (link) {
       await logEvent(link.projectId, {
@@ -897,6 +1002,7 @@ const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
   console.log(`Servidor ejecutándose en el puerto ${PORT}`);
 });
+attachPresence(server);
 
 // Cierre ordenado cuando Render envía SIGTERM en cada redeploy
 async function shutdown() {

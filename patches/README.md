@@ -48,6 +48,12 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   historial ahora registra al usuario autenticado en vez de un valor fijo.
   **Requiere `JWT_SECRET`, aplicar la migración `20260917000000_add_users` y
   correr `npm run seed:users`.**
+- `012-visibilidad-por-usuario-y-panel-de-administracion.md`: un Arquitecto
+  ya solo ve los expedientes que creó o donde está vinculado como
+  participante; el Administrador sigue viendo todo y tiene un módulo nuevo,
+  «Usuarios», con estado en línea/desconectado en vivo (WebSocket) y un panel
+  por cuenta. **Requiere aplicar la migración
+  `20260917010000_add_project_owner_and_member_user`.**
 
 ## Cambios mayores (no son parches)
 
