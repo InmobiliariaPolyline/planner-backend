@@ -2398,9 +2398,13 @@ input[type="checkbox"]:active {
   font-variant-numeric: tabular-nums;
 }
 .gantt-timeline-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  position: relative;
+  align-self: stretch;
+}
+.gantt-timeline-head span {
+  position: absolute;
+  top: 50%;
+  white-space: nowrap;
 }
 .gantt-track {
   position: relative;

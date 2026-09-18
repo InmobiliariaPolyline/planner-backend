@@ -151,9 +151,19 @@ export function GanttChart({
               <span>Fechas</span>
               <span>Progreso</span>
               <div className="gantt-timeline-head">
-                {columns.map((label, index) => (
-                  <span key={index}>{label}</span>
-                ))}
+                {columns.map((label, index) => {
+                  // Mismo sistema de coordenadas que la barra de progreso y la
+                  // marca de "hoy" (left en %), para que el texto quede
+                  // exactamente sobre la fecha que representa y no solo
+                  // "más o menos" repartido por el ancho disponible.
+                  const left = (index / (columns.length - 1)) * 100;
+                  const shiftX = index === 0 ? "0%" : index === columns.length - 1 ? "-100%" : "-50%";
+                  return (
+                    <span key={index} style={{ left: `${left}%`, transform: `translate(${shiftX}, -50%)` }}>
+                      {label}
+                    </span>
+                  );
+                })}
               </div>
             </div>
 
