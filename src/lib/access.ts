@@ -35,9 +35,30 @@ export async function assertTaskAccess(user: AuthUser, taskId: string): Promise<
   return task;
 }
 
-/** Respuesta de error homogénea: 404 si es de acceso, si no el estado indicado. */
+/** Se lanza cuando el usuario ve la tarea pero no tiene permiso para esta
+ * acción en concreto (a diferencia de ProjectAccessError, aquí sí existe y se
+ * puede ver, por eso 403 y no 404). */
+export class ForbiddenError extends Error {
+  status = 403;
+}
+
+/** Solo quien creó el expediente (o el Administrador) puede fijar el avance
+ * de una tarea a mano; el resto puede verlo pero no ajustarlo. */
+export async function assertProgressEditAccess(user: AuthUser, taskId: string): Promise<void> {
+  if (user.role === 'admin') return;
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { project: { select: { createdById: true } } },
+  });
+  if (!task) throw new ProjectAccessError();
+  if (task.project.createdById !== user.id) {
+    throw new ForbiddenError('Solo quien creó el expediente (o el Administrador) puede ajustar el avance a mano.');
+  }
+}
+
+/** Respuesta de error homogénea: el estado propio si es un error conocido, si no el indicado. */
 export function respondError(error: unknown, res: Response, fallbackStatus = 400, fallbackMessage = 'Error') {
-  if (error instanceof ProjectAccessError) {
+  if (error instanceof ProjectAccessError || error instanceof ForbiddenError) {
     res.status(error.status).json({ error: error.message });
     return;
   }

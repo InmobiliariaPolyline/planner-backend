@@ -41,6 +41,11 @@ function ProgressEditor({
         aria-label={`Progreso de ${task.name}`}
       />
       <span>{value}% completado</span>
+      {task.autoProgress && dirty && (
+        <p className="gantt-edit-note">
+          Este avance se calcula solo según las fechas. Si lo guardas, dejará de ser automático.
+        </p>
+      )}
       <button
         type="button"
         className="btn btn-primary btn-sm"
@@ -53,6 +58,18 @@ function ProgressEditor({
   );
 }
 
+function AutoProgressBadge({ auto }: { auto: boolean }) {
+  return (
+    <span
+      className={auto ? "gantt-auto-badge is-auto" : "gantt-auto-badge is-manual"}
+      title={auto ? "El avance se calcula solo según las fechas" : "El avance se ajustó a mano: ya no es automático"}
+    >
+      <i aria-hidden="true" />
+      {auto ? "Automático" : "Manual"}
+    </span>
+  );
+}
+
 export function GanttChart({
   tasks,
   mode,
@@ -62,6 +79,7 @@ export function GanttChart({
   onDeleteTask,
   onCommitProgress,
   readOnly = false,
+  canEditProgress = true,
 }: {
   tasks: Task[];
   mode: GanttMode;
@@ -71,10 +89,13 @@ export function GanttChart({
   onDeleteTask: (task: Task) => void;
   onCommitProgress: (id: string, progress: number) => void;
   readOnly?: boolean;
+  /** Solo quien creó el expediente (o el Administrador) puede ajustar el avance a mano. */
+  canEditProgress?: boolean;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
   const editable = !readOnly;
+  const progressEditable = editable && canEditProgress;
 
   const { rangeStart, rangeEnd, columns, todayLeft, todayLabel } = useMemo(() => {
     const times = tasks
@@ -111,7 +132,11 @@ export function GanttChart({
           <p className="eyebrow">Planificación detallada</p>
           <h2>Cronograma de ejecución</h2>
           <p className="hero-lead">
-            {editable ? "Haz clic en una tarea para ajustar su progreso." : "Vista del cronograma."}
+            {!editable
+              ? "Vista del cronograma."
+              : progressEditable
+                ? "Haz clic en una tarea para ajustar su progreso."
+                : "El progreso se calcula solo según las fechas. Solo quien creó el expediente puede ajustarlo a mano."}
           </p>
         </div>
         <div className="gantt-head-actions">
@@ -168,15 +193,15 @@ export function GanttChart({
             </div>
 
             {tasks.map((task) => {
-              const open = editable && openId === task.id;
+              const open = progressEditable && openId === task.id;
               return (
                 <div key={task.id} className={task.phase ? "gantt-row is-phase" : "gantt-row"}>
                   <div className="gantt-task-cell">
                     <button
                       type="button"
                       className="gantt-task"
-                      onClick={() => editable && setOpenId(open ? null : task.id)}
-                      disabled={!editable}
+                      onClick={() => progressEditable && setOpenId(open ? null : task.id)}
+                      disabled={!progressEditable}
                     >
                       <Icon name="grip" size={15} />
                       <span className="gantt-task-code">{task.id.slice(0, 4)}</span>
@@ -212,6 +237,7 @@ export function GanttChart({
                   <div className="gantt-progress">
                     <strong>{task.progress}%</strong>
                     <ProgressBar value={task.progress} tone={barTone(task.progress)} />
+                    <AutoProgressBadge auto={task.autoProgress} />
                   </div>
 
                   <div className="gantt-track">

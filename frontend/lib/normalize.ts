@@ -36,6 +36,7 @@ export function normalizeTasks(tasks: RawTask[] = []): Task[] {
       start: shortDate(startISO),
       end: shortDate(endISO),
       progress: Number(task.progress ?? 0),
+      autoProgress: task.autoProgress !== false,
       phase: Boolean(task.isPhase),
       dependency: String(task.dependency ?? ""),
       technicalArea:

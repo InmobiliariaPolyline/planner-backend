@@ -15,11 +15,14 @@ export function assertDateOrder(start: Date, end: Date): void {
 
 /**
  * Recalcula project.progress como el promedio del progreso de sus tareas.
- * Si no tiene tareas, no toca el valor (queda como estaba / 0).
+ * Si no tiene tareas, no toca el valor (queda como estaba / 0). Devuelve el
+ * promedio calculado (o null si no había tareas) para poder reflejarlo sin
+ * tener que volver a leer el expediente.
  */
-export async function recomputeProjectProgress(projectId: string): Promise<void> {
+export async function recomputeProjectProgress(projectId: string): Promise<number | null> {
   const tasks = await prisma.task.findMany({ where: { projectId }, select: { progress: true } });
-  if (tasks.length === 0) return;
+  if (tasks.length === 0) return null;
   const avg = Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length);
   await prisma.project.update({ where: { id: projectId }, data: { progress: avg } });
+  return avg;
 }

@@ -14,6 +14,8 @@ export type Task = {
   startISO: string;
   endISO: string;
   progress: number;
+  /** Si el % se calcula solo según las fechas, o quedó fijo tras un ajuste manual. */
+  autoProgress: boolean;
   phase: boolean;
   dependency: string;
   technicalArea: string;

@@ -371,7 +371,9 @@ export function PlannerApp() {
       dependency: values.dependency.trim(),
     };
     if (existing) await api.updateTask(existing.id, payload);
-    else await api.createTask(selectedProject.id, { ...payload, progress: 0 });
+    // Sin "progress" en el body: el backend la crea en modo automático y
+    // calcula el % inicial según las fechas.
+    else await api.createTask(selectedProject.id, payload);
     await refreshProject(selectedProject.id);
     setModal(null);
     void syncActivity(selectedProject.id);
@@ -445,15 +447,18 @@ export function PlannerApp() {
     if (previous === progress) return;
     const projectId = selectedProject.id;
     const name = task?.name ?? "la tarea";
+    const wasAuto = task?.autoProgress ?? false;
     setModal({
       kind: "confirm",
       title: "Guardar avance",
-      message: `El avance de «${name}» pasará de ${previous}% a ${progress}%. Quedará registrado en el historial del expediente.`,
+      message: wasAuto
+        ? `El avance de «${name}» pasará de ${previous}% a ${progress}% y dejará de calcularse solo por fechas: quedará fijo hasta que lo vuelvas a ajustar a mano. Quedará registrado en el historial del expediente.`
+        : `El avance de «${name}» pasará de ${previous}% a ${progress}%. Quedará registrado en el historial del expediente.`,
       confirmLabel: "Guardar avance",
       tone: "accent",
       onConfirm: async () => {
         setTasks((current) =>
-          current.map((item) => (item.id === id ? { ...item, progress } : item)),
+          current.map((item) => (item.id === id ? { ...item, progress, autoProgress: false } : item)),
         );
         try {
           await api.updateTaskProgress(id, progress);
@@ -461,7 +466,7 @@ export function PlannerApp() {
           void syncActivity(projectId);
         } catch (error) {
           setTasks((current) =>
-            current.map((item) => (item.id === id ? { ...item, progress: previous } : item)),
+            current.map((item) => (item.id === id ? { ...item, progress: previous, autoProgress: wasAuto } : item)),
           );
           toastError("No se pudo guardar el avance", friendlyError(error));
         }
@@ -574,6 +579,7 @@ export function PlannerApp() {
                 onEditTask={openTaskEdit}
                 onDeleteTask={askDeleteTask}
                 onCommitProgress={askCommitProgress}
+                canEditProgress={user.role === "admin" || selectedProject.createdById === user.id}
               />
             }
           />

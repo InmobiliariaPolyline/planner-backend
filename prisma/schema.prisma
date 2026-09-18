@@ -116,6 +116,11 @@ model Task {
   technicalAreaId String
   technicalArea   TechnicalArea @relation(fields: [technicalAreaId], references: [id])
   progress        Int
+  /// Si es true, `progress` se recalcula solo según cuánto tiempo pasó entre
+  /// startDate y endDate. Se apaga (pasa a false) en cuanto alguien ajusta el
+  /// avance a mano; a partir de ahí el valor queda fijo hasta que se toque de
+  /// nuevo manualmente.
+  autoProgress    Boolean       @default(true)
   dependency      String
   isPhase         Boolean
   ownerName       String

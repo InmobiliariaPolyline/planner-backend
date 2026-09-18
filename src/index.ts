@@ -9,8 +9,9 @@ import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAcc
 import { assertDateOrder, monthsBetween, recomputeProjectProgress } from './lib/projectMath';
 import { ACTOR_ADMIN, ACTOR_LINK, diffFields, logEvent, money, percent, pruneOldActivity, RETENTION_DAYS } from './lib/activity';
 import { CREATABLE_ROLES, hashPassword, requireAuth, ROLE_LABEL, signToken, slugifyUsername, verifyPassword, type Role } from './lib/auth';
-import { assertProjectAccess, assertTaskAccess, ProjectAccessError, respondError, visibleProjectsWhere } from './lib/access';
+import { assertProgressEditAccess, assertProjectAccess, assertTaskAccess, ProjectAccessError, respondError, visibleProjectsWhere } from './lib/access';
 import { attachPresence, isOnline } from './lib/presence';
+import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
 
 const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
 
@@ -221,6 +222,16 @@ app.get('/projects', async (req: Request, res: Response) => {
       include: projectInclude,
       orderBy: { createdAt: 'desc' },
     });
+    // Refresca el % de las tareas en modo automático antes de responder, así
+    // el avance mostrado siempre refleja el día en curso.
+    await Promise.all(
+      projects.map(async (project) => {
+        if (await syncAutoProgress(project.tasks)) {
+          const avg = await recomputeProjectProgress(project.id);
+          if (avg !== null) project.progress = avg;
+        }
+      }),
+    );
     res.json(projects);
   } catch (error) {
     console.error(error);
@@ -236,6 +247,10 @@ app.get('/projects/:id', async (req: Request, res: Response) => {
     if (!project) {
       res.status(404).json({ error: 'Proyecto no encontrado' });
       return;
+    }
+    if (await syncAutoProgress(project.tasks)) {
+      const avg = await recomputeProjectProgress(project.id);
+      if (avg !== null) project.progress = avg;
     }
     res.json(project);
   } catch (error) {
@@ -401,7 +416,10 @@ app.post('/projects/import', async (req: Request, res: Response) => {
           startDate: ts,
           endDate: te,
           technicalAreaId: await resolveArea(areaName, areaCache),
+          // Trae un avance ya establecido de fuera: se respeta tal cual, no
+          // se recalcula solo con el paso del tiempo.
           progress: requiredNumber(t.progress ?? 0, 'progress', 0, 100),
+          autoProgress: false,
           dependency: cleanText(t.dependency ?? '', 'dependency', false) ?? '',
           isPhase: Boolean(t.isPhase),
           ownerName: cleanText(t.ownerName, 'ownerName')!,
@@ -555,11 +573,17 @@ async function createTaskForProject(projectId: string, body: Record<string, unkn
   const start = requiredDate(body.startDate, 'startDate');
   const end = requiredDate(body.endDate, 'endDate');
   assertDateOrder(start, end);
+  // Si no se indica un avance explícito (caso normal al crear desde la app),
+  // la tarea arranca en modo automático: el % se calcula solo según cuánto
+  // pasó del rango de fechas. Si viene un avance (p. ej. al importar), se
+  // respeta tal cual y queda en modo manual.
+  const autoProgress = body.progress === undefined;
+  const progress = autoProgress ? computeAutoProgress(start, end) : requiredNumber(body.progress, 'progress', 0, 100);
   const task = await prisma.task.create({ data: {
     name: cleanText(body.name, 'name')!, projectId,
     startDate: start, endDate: end,
     technicalAreaId: cleanText(body.technicalAreaId, 'technicalAreaId')!,
-    progress: requiredNumber(body.progress ?? 0, 'progress', 0, 100),
+    progress, autoProgress,
     dependency: cleanText(body.dependency ?? '', 'dependency', false) ?? '',
     isPhase: Boolean(body.isPhase), ownerName: cleanText(body.ownerName, 'ownerName')!,
   }, include: taskInclude });
@@ -581,13 +605,26 @@ async function patchTask(taskId: string, body: Record<string, unknown>, actor?: 
   const start = body.startDate !== undefined ? requiredDate(body.startDate, 'startDate') : existing.startDate;
   const end = body.endDate !== undefined ? requiredDate(body.endDate, 'endDate') : existing.endDate;
   if (body.startDate !== undefined || body.endDate !== undefined) assertDateOrder(start, end);
+
+  // Un avance explícito en el body es una anulación manual: apaga el modo
+  // automático para siempre (hasta que alguien lo vuelva a tocar a mano). Si
+  // no viene avance pero sí cambiaron las fechas y la tarea seguía en
+  // automático, se recalcula con el nuevo rango.
+  const manualOverride = body.progress !== undefined;
+  const datesChanged = body.startDate !== undefined || body.endDate !== undefined;
+  const progressPatch = manualOverride
+    ? { progress: requiredNumber(body.progress, 'progress', 0, 100), autoProgress: false }
+    : datesChanged && existing.autoProgress
+      ? { progress: computeAutoProgress(start, end), autoProgress: true }
+      : undefined;
+
   const task = await prisma.task.update({
     where: { id: taskId },
     data: {
       ...(body.name !== undefined && { name: cleanText(body.name, 'name') }),
       ...(body.startDate !== undefined && { startDate: start }),
       ...(body.endDate !== undefined && { endDate: end }),
-      ...(body.progress !== undefined && { progress: requiredNumber(body.progress, 'progress', 0, 100) }),
+      ...progressPatch,
       ...(body.dependency !== undefined && { dependency: cleanText(body.dependency, 'dependency', false) ?? '' }),
       ...(body.ownerName !== undefined && { ownerName: cleanText(body.ownerName, 'ownerName') }),
       ...(body.isPhase !== undefined && { isPhase: Boolean(body.isPhase) }),
@@ -755,6 +792,9 @@ app.delete('/milestones/:id', async (req, res) => {
 app.patch('/tasks/:id', async (req: Request, res: Response) => {
   try {
     await assertTaskAccess(req.user!, String(req.params.id));
+    if (req.body?.progress !== undefined) {
+      await assertProgressEditAccess(req.user!, String(req.params.id));
+    }
     res.json(await patchTask(String(req.params.id), req.body));
   } catch (error) {
     respondError(error, res, 400, 'Error al actualizar la tarea');

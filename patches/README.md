@@ -58,6 +58,11 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   cuentas nuevas (Arquitecto o Civil) desde el módulo Usuarios, en dos pasos
   (datos personales y contraseña), sin usar la terminal. No requiere
   migración nueva.
+- `014-progreso-automatico-por-fechas.md`: el % de avance de una tarea se
+  calcula solo según cuánto pasó entre su fecha de inicio y término; solo
+  quien creó el expediente (o el Administrador) puede fijarlo a mano, con
+  aviso antes de desactivar el modo automático e indicador verde/rojo.
+  **Requiere aplicar la migración `20260917020000_add_task_auto_progress`.**
 
 ## Cambios mayores (no son parches)
 
