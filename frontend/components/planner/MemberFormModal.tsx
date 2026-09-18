@@ -66,10 +66,19 @@ function MemberMultiSelect({
           color: selected.length ? "var(--text)" : "var(--text-muted)",
           font: "inherit",
           cursor: "pointer",
+          transition: "border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease)",
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</span>
-        <Icon name="chevron-down" size={16} />
+        <span
+          style={{
+            display: "inline-flex",
+            transition: "transform var(--dur) var(--ease-out)",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          <Icon name="chevron-down" size={16} />
+        </span>
       </button>
 
       {open && (
@@ -86,6 +95,7 @@ function MemberMultiSelect({
                 return (
                   <li key={account.id}>
                     <label
+                      className="member-option"
                       style={{
                         display: "flex",
                         alignItems: "center",

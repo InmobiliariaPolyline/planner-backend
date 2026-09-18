@@ -149,7 +149,9 @@ export function UsersView({
                     height: 8,
                     borderRadius: "50%",
                     background: online ? "var(--success)" : "var(--text-muted)",
+                    color: online ? "var(--success)" : "var(--text-muted)",
                     flexShrink: 0,
+                    animation: online ? "pulse-dot 2.2s ease infinite" : undefined,
                   }}
                 />
               );
