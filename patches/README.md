@@ -54,6 +54,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   «Usuarios», con estado en línea/desconectado en vivo (WebSocket) y un panel
   por cuenta. **Requiere aplicar la migración
   `20260917010000_add_project_owner_and_member_user`.**
+- `013-crear-usuarios-desde-el-panel.md`: el Administrador ya puede crear
+  cuentas nuevas (Arquitecto o Civil) desde el módulo Usuarios, en dos pasos
+  (datos personales y contraseña), sin usar la terminal. No requiere
+  migración nueva.
 
 ## Cambios mayores (no son parches)
 

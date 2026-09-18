@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { friendlyError } from "@/lib/errors";
 import { api } from "@/lib/api";
 import type { ManagedUser, UserDashboard } from "@/lib/types";
+import { CreateUserModal } from "./CreateUserModal";
 
 function money(value: number): string {
   return value.toLocaleString("es", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -99,6 +100,7 @@ export function UsersView({
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [error, setError] = useState("");
   const [openUserId, setOpenUserId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     api
@@ -116,6 +118,12 @@ export function UsersView({
           <p className="hero-lead">
             Todas las cuentas del sistema. Haz clic en una para ver sus expedientes.
           </p>
+        </div>
+        <div className="hero-actions">
+          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+            <Icon name="plus" size={15} />
+            Nuevo usuario
+          </button>
         </div>
       </header>
 
@@ -194,6 +202,17 @@ export function UsersView({
       )}
 
       {openUserId && <UserDashboardModal userId={openUserId} onClose={() => setOpenUserId(null)} />}
+
+      {creating && (
+        <CreateUserModal
+          onSubmit={async (data) => {
+            const user = await api.createUser(data);
+            setUsers((current) => [...(current ?? []), user]);
+            return user;
+          }}
+          onClose={() => setCreating(false)}
+        />
+      )}
     </div>
   );
 }

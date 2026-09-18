@@ -165,6 +165,8 @@ export const api = {
   listUsers: () => request<ManagedUser[]>("/users", { failMessage: "No fue posible cargar los usuarios" }),
   getUserDashboard: (id: string) =>
     request<UserDashboard>(`/users/${id}/dashboard`, { failMessage: "No fue posible cargar el panel del usuario" }),
+  createUser: (data: { firstName: string; lastName: string; role: "architect" | "civil"; password: string }) =>
+    request<ManagedUser>("/users", { method: "POST", body: json(data), failMessage: "No fue posible crear el usuario" }),
 
   // Hitos
   createMilestone: (projectId: string, data: { description: string; date: string }) =>

@@ -10,12 +10,16 @@ const PUBLIC_PATHS: RegExp[] = [/^\/$/, /^\/health$/, /^\/auth\/login$/, /^\/sha
 
 const TOKEN_TTL = '12h';
 
-export type Role = 'admin' | 'architect';
+export type Role = 'admin' | 'architect' | 'civil';
 
 export const ROLE_LABEL: Record<Role, string> = {
   admin: 'Administrador',
   architect: 'Arquitecto',
+  civil: 'Civil',
 };
+
+/** Roles que el Administrador puede asignar al crear una cuenta nueva. */
+export const CREATABLE_ROLES: Role[] = ['architect', 'civil'];
 
 export type AuthUser = { id: string; username: string; name: string; role: Role };
 
@@ -32,6 +36,17 @@ declare global {
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
+}
+
+/** Convierte un nombre en un usuario de acceso válido: "José" -> "jose". */
+export function slugifyUsername(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9._-]/g, '');
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {

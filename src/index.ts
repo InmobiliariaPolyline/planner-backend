@@ -8,7 +8,7 @@ import { cleanText, requiredDate, requiredNumber } from './lib/validation';
 import { newShareToken, parseRole, requireEditorLink, resolveShareLink, ShareAccessError } from './lib/share';
 import { assertDateOrder, monthsBetween, recomputeProjectProgress } from './lib/projectMath';
 import { ACTOR_ADMIN, ACTOR_LINK, diffFields, logEvent, money, percent, pruneOldActivity, RETENTION_DAYS } from './lib/activity';
-import { requireAuth, ROLE_LABEL, signToken, verifyPassword, type Role } from './lib/auth';
+import { CREATABLE_ROLES, hashPassword, requireAuth, ROLE_LABEL, signToken, slugifyUsername, verifyPassword, type Role } from './lib/auth';
 import { assertProjectAccess, assertTaskAccess, ProjectAccessError, respondError, visibleProjectsWhere } from './lib/access';
 import { attachPresence, isOnline } from './lib/presence';
 
@@ -137,6 +137,51 @@ app.get('/users', async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al obtener los usuarios' });
+  }
+});
+
+// Crea una cuenta nueva (Arquitecto o Civil). El usuario de acceso se deriva
+// del nombre de pila; si ya existe, se pide elegir otro nombre.
+app.post('/users', async (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const firstName = cleanText(req.body?.firstName, 'firstName')!;
+    const lastName = cleanText(req.body?.lastName, 'lastName', false) ?? '';
+    const role = req.body?.role;
+    if (!CREATABLE_ROLES.includes(role)) {
+      res.status(400).json({ error: 'Elige un rol válido: Arquitecto o Civil.' });
+      return;
+    }
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!password.trim()) {
+      res.status(400).json({ error: 'Escribe una contraseña.' });
+      return;
+    }
+    const username = slugifyUsername(firstName);
+    if (!username) {
+      res.status(400).json({ error: 'Ese nombre no sirve para generar un usuario de acceso.' });
+      return;
+    }
+    const existing = await prisma.user.findUnique({ where: { username } });
+    if (existing) {
+      res.status(409).json({ error: `Ya existe una cuenta con el usuario «${username}». Prueba con otro nombre.` });
+      return;
+    }
+    const passwordHash = await hashPassword(password);
+    const name = [firstName, lastName].filter(Boolean).join(' ');
+    const user = await prisma.user.create({ data: { username, passwordHash, name, role } });
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      roleLabel: ROLE_LABEL[user.role as Role] ?? user.role,
+      online: false,
+      createdAt: user.createdAt,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible crear el usuario' });
   }
 });
 
