@@ -544,7 +544,7 @@ export function PlannerApp() {
         {activeView === "guide" && <GuideView onNavigate={navigate} />}
 
         {activeView === "users" && user.role === "admin" && (
-          <UsersView onlineIds={onlineIds} presenceReady={presenceReady} />
+          <UsersView onlineIds={onlineIds} presenceReady={presenceReady} currentUserId={user.id} />
         )}
 
         {(activeView === "overview" || activeView === "gantt" || activeView === "activity") && selectedProject && (

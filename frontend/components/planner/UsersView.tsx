@@ -86,7 +86,16 @@ function UserDashboardModal({ userId, onClose }: { userId: string; onClose: () =
   );
 }
 
-export function UsersView({ onlineIds, presenceReady }: { onlineIds: Set<string>; presenceReady: boolean }) {
+export function UsersView({
+  onlineIds,
+  presenceReady,
+  currentUserId,
+}: {
+  onlineIds: Set<string>;
+  presenceReady: boolean;
+  /** El propio usuario no abre su panel: ya está viendo su sesión. */
+  currentUserId: string;
+}) {
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [error, setError] = useState("");
   const [openUserId, setOpenUserId] = useState<string | null>(null);
@@ -123,45 +132,60 @@ export function UsersView({ onlineIds, presenceReady }: { onlineIds: Set<string>
           <ul className="catalog-list">
             {users.map((user) => {
               const online = presenceReady ? onlineIds.has(user.id) : user.online;
+              const isSelf = user.id === currentUserId;
+              const dot = (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: online ? "var(--success)" : "var(--text-muted)",
+                    flexShrink: 0,
+                  }}
+                />
+              );
+              const label = (
+                <span>
+                  <strong>{user.name}</strong> · {user.roleLabel}
+                </span>
+              );
               return (
                 <li key={user.id}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenUserId(user.id)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "var(--space-3)",
-                      flex: 1,
-                      minWidth: 0,
-                      textAlign: "left",
-                      border: "none",
-                      background: "none",
-                      padding: 0,
-                      font: "inherit",
-                      color: "inherit",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: online ? "var(--success)" : "var(--text-muted)",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span>
-                      <strong>{user.name}</strong> · {user.roleLabel}
+                  {isSelf ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flex: 1, minWidth: 0 }}>
+                      {dot}
+                      {label}
                     </span>
-                  </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOpenUserId(user.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--space-3)",
+                        flex: 1,
+                        minWidth: 0,
+                        textAlign: "left",
+                        border: "none",
+                        background: "none",
+                        padding: 0,
+                        font: "inherit",
+                        color: "inherit",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {dot}
+                      {label}
+                    </button>
+                  )}
                   <span className="hero-lead" style={{ flexShrink: 0 }}>
                     {user.username}
+                    {isSelf ? " · Tú" : ""}
                   </span>
                   <StatusBadge online={online} />
-                  <Icon name="arrow-right" size={14} />
+                  {!isSelf && <Icon name="arrow-right" size={14} />}
                 </li>
               );
             })}
