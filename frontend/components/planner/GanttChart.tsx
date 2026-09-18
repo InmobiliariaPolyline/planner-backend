@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, EmptyState, ProgressBar } from "@/components/ui/Primitives";
-import { fallbackRange, timelineColumns } from "@/lib/format";
+import { fallbackRange, shortDate, timelineColumns } from "@/lib/format";
 import { barStyle } from "@/lib/normalize";
 import type { GanttMode, Task } from "@/lib/types";
 
@@ -76,7 +76,7 @@ export function GanttChart({
   const [now] = useState(() => Date.now());
   const editable = !readOnly;
 
-  const { rangeStart, rangeEnd, columns, todayLeft } = useMemo(() => {
+  const { rangeStart, rangeEnd, columns, todayLeft, todayLabel } = useMemo(() => {
     const times = tasks
       .flatMap((task) => [new Date(task.startISO).getTime(), new Date(task.endISO).getTime()])
       .filter((value) => Number.isFinite(value));
@@ -84,12 +84,21 @@ export function GanttChart({
     const start = times.length ? Math.min(...times) : fbStart;
     const end = times.length ? Math.max(...times) : fbEnd;
     const span = end - start || 1;
-    const pct = ((now - start) / span) * 100;
+    // El día calendario de "hoy" se toma en hora LOCAL de quien mira la
+    // pantalla (para que sea el mismo día que ve en su reloj) y luego se
+    // ancla a medianoche UTC, igual que se guardan las fechas de las tareas
+    // (ver shortDate). Usar directamente Date.now() sin este ajuste hace que,
+    // para quien está detrás de UTC, la marca "salte" al día siguiente desde
+    // media tarde en vez de a medianoche local.
+    const nowLocal = new Date(now);
+    const todayStart = Date.UTC(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
+    const pct = ((todayStart - start) / span) * 100;
     return {
       rangeStart: start,
       rangeEnd: end,
       columns: timelineColumns(start, end),
       todayLeft: pct >= 0 && pct <= 100 ? pct : null,
+      todayLabel: shortDate(new Date(todayStart).toISOString()),
     };
   }, [tasks, now]);
 
@@ -128,7 +137,7 @@ export function GanttChart({
           <span><i className="dot tone-accent" /> En curso</span>
           <span><i className="dot tone-warning" /> Atención</span>
           {todayLeft !== null && (
-            <span><i className="gantt-legend-today" /> Hoy</span>
+            <span><i className="gantt-legend-today" /> Hoy · {todayLabel}</span>
           )}
         </span>
       </div>
@@ -197,7 +206,12 @@ export function GanttChart({
 
                   <div className="gantt-track">
                     {todayLeft !== null && (
-                      <span className="gantt-today" style={{ left: `${todayLeft}%` }} aria-hidden="true" />
+                      <span
+                        className="gantt-today"
+                        style={{ left: `${todayLeft}%` }}
+                        title={`Hoy · ${todayLabel}`}
+                        aria-hidden="true"
+                      />
                     )}
                     <span
                       className={`gantt-bar tone-${barTone(task.progress)}`}
