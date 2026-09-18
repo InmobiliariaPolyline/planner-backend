@@ -1,10 +1,117 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { Icon } from "@/components/ui/Icon";
 import { friendlyError } from "@/lib/errors";
 import { SelectOrCreate } from "@/components/ui/SelectOrCreate";
 import type { BasicUser, TeamStatusOption } from "@/lib/types";
+
+/** Desplegable de selección múltiple, con el mismo aspecto que un select normal. */
+function MemberMultiSelect({
+  options,
+  selected,
+  onToggle,
+  showErrors,
+}: {
+  options: BasicUser[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  showErrors: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const invalid = showErrors && selected.length === 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const onOutside = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const summary =
+    selected.length === 0
+      ? "Selecciona uno o varios…"
+      : selected.length === 1
+        ? options.find((option) => option.id === selected[0])?.name ?? "1 seleccionado"
+        : `${selected.length} integrantes seleccionados`;
+
+  return (
+    <div ref={rootRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        style={{
+          width: "100%",
+          height: 40,
+          padding: "0 var(--space-3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "var(--space-2)",
+          border: `1px solid ${invalid ? "var(--danger)" : "var(--border-strong)"}`,
+          borderRadius: "var(--radius-sm)",
+          background: "var(--surface)",
+          color: selected.length ? "var(--text)" : "var(--text-muted)",
+          font: "inherit",
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</span>
+        <Icon name="chevron-down" size={16} />
+      </button>
+
+      {open && (
+        <div className="vfield-pop place-bottom align-left" style={{ maxWidth: "none" }} role="listbox">
+          {options.length === 0 ? (
+            <p className="vfield-example" style={{ margin: 0 }}>
+              No hay cuentas disponibles: todas ya son participantes de este expediente, o no hay
+              cuentas creadas todavía.
+            </p>
+          ) : (
+            <ul style={{ display: "grid", gap: 2, maxHeight: 220, overflowY: "auto" }}>
+              {options.map((account) => {
+                const checked = selected.includes(account.id);
+                return (
+                  <li key={account.id}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--space-2)",
+                        padding: "var(--space-2)",
+                        borderRadius: "var(--radius-sm)",
+                        cursor: "pointer",
+                        fontSize: "var(--text-sm)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      <input type="checkbox" checked={checked} onChange={() => onToggle(account.id)} />
+                      <span>
+                        {account.name} · {account.roleLabel}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function MemberFormModal({
   statuses,
@@ -57,28 +164,7 @@ export function MemberFormModal({
       <form className="form" onSubmit={handleSubmit} noValidate>
         <div className="form-row">
           <span>Selecciona a uno o varios integrantes</span>
-          {available.length === 0 ? (
-            <p className="hero-lead">
-              No hay cuentas disponibles: todas ya son participantes de este expediente, o no hay
-              cuentas creadas todavía.
-            </p>
-          ) : (
-            <ul className="catalog-list">
-              {available.map((account) => {
-                const checked = selected.includes(account.id);
-                return (
-                  <li key={account.id}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flex: 1, cursor: "pointer" }}>
-                      <input type="checkbox" checked={checked} onChange={() => toggle(account.id)} />
-                      <span>
-                        {account.name} · {account.roleLabel}
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <MemberMultiSelect options={available} selected={selected} onToggle={toggle} showErrors={showErrors} />
         </div>
 
         <SelectOrCreate
