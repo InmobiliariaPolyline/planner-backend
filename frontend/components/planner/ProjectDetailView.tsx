@@ -7,6 +7,7 @@ import { currency, dateRange, isoDay } from "@/lib/format";
 import { exportProjectExcel, exportProjectPdf } from "@/lib/transfer";
 import type { Milestone, Project } from "@/lib/types";
 import { ActivityTimeline } from "./ActivityTimeline";
+import { ProjectLogoUpload } from "./ProjectLogoUpload";
 
 export function ProjectDetailView({
   project,
@@ -24,6 +25,7 @@ export function ProjectDetailView({
   onEditMilestone,
   onDeleteMilestone,
   onImportActivity,
+  onLogoChange,
   activityReload,
   gantt,
 }: {
@@ -42,6 +44,7 @@ export function ProjectDetailView({
   onEditMilestone: (milestone: Milestone) => void;
   onDeleteMilestone: (milestone: Milestone) => void;
   onImportActivity: (file: File) => void;
+  onLogoChange: (dataUrl: string | null) => Promise<void>;
   activityReload: number;
   gantt: ReactNode;
 }) {
@@ -57,15 +60,18 @@ export function ProjectDetailView({
       </button>
 
       <header className="detail-head">
-        <div>
-          <div className="detail-id">
-            <span className="project-code">{project.id.slice(0, 8)}</span>
-            <Badge tone={completed ? "success" : "accent"}>
-              {completed ? "Completado" : "En ejecución"}
-            </Badge>
+        <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "flex-start" }}>
+          <ProjectLogoUpload logoUrl={project.logoUrl} onChange={onLogoChange} />
+          <div>
+            <div className="detail-id">
+              <span className="project-code">{project.id.slice(0, 8)}</span>
+              <Badge tone={completed ? "success" : "accent"}>
+                {completed ? "Completado" : "En ejecución"}
+              </Badge>
+            </div>
+            <h1>{project.name}</h1>
+            <p className="hero-lead">Responsable: {project.ownerName}</p>
           </div>
-          <h1>{project.name}</h1>
-          <p className="hero-lead">Responsable: {project.ownerName}</p>
         </div>
         <div className="detail-actions">
           <button

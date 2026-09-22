@@ -18,6 +18,7 @@ function buildCrumbs(
   if (activeView === "settings") return [{ label: "Catálogos del sistema" }];
   if (activeView === "guide") return [{ label: "Guía de uso" }];
   if (activeView === "users") return [{ label: "Usuarios" }];
+  if (activeView === "config") return [{ label: "Configuración" }];
   if (activeView === "projects") return [{ label: "Mis expedientes" }];
   const crumbs: Crumb[] = [{ label: "Mis expedientes", onClick: () => onNavigate("projects") }];
   if (selectedProject) {
@@ -121,12 +122,13 @@ export function AppShell({
   children: ReactNode;
 }) {
   const crumbs = buildCrumbs(activeView, selectedProject, onNavigate);
-  const navItems: { view: ActiveView; label: string; icon: "dashboard" | "folder" | "tags" | "book" | "users" }[] = [
+  const navItems: { view: ActiveView; label: string; icon: "dashboard" | "folder" | "tags" | "book" | "users" | "settings" }[] = [
     { view: "dashboard", label: "Dashboard", icon: "dashboard" },
     { view: "projects", label: "Mis expedientes", icon: "folder" },
     { view: "settings", label: "Catálogos", icon: "tags" },
     ...(isAdmin ? [{ view: "users" as const, label: "Usuarios", icon: "users" as const }] : []),
     { view: "guide", label: "Guía de uso", icon: "book" },
+    { view: "config", label: "Configuración", icon: "settings" },
   ];
 
   const activeNav: ActiveView =
@@ -138,7 +140,9 @@ export function AppShell({
           ? "guide"
           : activeView === "users"
             ? "users"
-            : "projects";
+            : activeView === "config"
+              ? "config"
+              : "projects";
 
   return (
     <div className="shell">

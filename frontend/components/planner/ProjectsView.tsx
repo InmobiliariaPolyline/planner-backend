@@ -26,7 +26,13 @@ function ProjectCard({
           </Badge>
           <span className="project-code">{project.id.slice(0, 8)}</span>
         </div>
-        <h3>{project.name}</h3>
+        <h3 className="project-card-title">
+          {project.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={project.logoUrl} alt="" className="project-card-logo" />
+          )}
+          {project.name}
+        </h3>
         <dl className="project-meta">
           <div>
             <dt>

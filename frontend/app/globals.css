@@ -113,12 +113,13 @@
   --text-secondary: #a6adbb;
   --text-muted: #8a91a0;
 
-  --accent: #7873f0;
-  --accent-2: #8f8bf5;
-  --accent-hover: #8b87f4;
+  /* Acento (morado) — antes era un índigo que se leía azulado en pantalla */
+  --accent: #8b5cf6;
+  --accent-2: #a78bfa;
+  --accent-hover: #7c3aed;
   --accent-fg: #ffffff;
-  --accent-subtle: #201f39;
-  --accent-on-subtle: #c6c2fb;
+  --accent-subtle: #271b40;
+  --accent-on-subtle: #d9c8fb;
   --accent-ring: color-mix(in srgb, var(--accent) 40%, transparent);
 
   --success: #37b578;
@@ -703,6 +704,152 @@ a {
 }
 .section-heading .eyebrow {
   margin-bottom: var(--space-1);
+}
+
+.project-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.project-card-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Logotipo del expediente */
+.project-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.project-logo-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius);
+  border: 1.5px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  overflow: hidden;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.project-logo-frame:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+.project-logo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.project-logo-frame:has(img) {
+  border-style: solid;
+  border-color: var(--border);
+}
+.project-logo-edit {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.project-logo-remove {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--danger);
+}
+.project-logo-remove:hover {
+  text-decoration: underline;
+}
+.project-logo-error {
+  max-width: 180px;
+  text-align: center;
+}
+
+/* Selector de tema (Configuración) */
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.theme-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  text-align: left;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.theme-option:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.theme-option.is-active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.theme-swatch {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  color: #fff;
+}
+.theme-swatch-light {
+  background: linear-gradient(160deg, #ffffff, #dfe3ea);
+  color: #171a21;
+  border: 1px solid var(--border-strong);
+}
+.theme-swatch-dark {
+  background: linear-gradient(160deg, #262233, #0b0d12);
+}
+.theme-option-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.theme-option-body span {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.theme-option-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  flex-shrink: 0;
 }
 
 /* Panel genérico */

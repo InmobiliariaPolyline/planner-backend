@@ -36,6 +36,7 @@ import { ProjectDetailView } from "./ProjectDetailView";
 import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
+import { ConfigView } from "./ConfigView";
 import { SettingsView } from "./SettingsView";
 import { ShareManager } from "./ShareManager";
 import { TaskFormModal } from "./TaskFormModal";
@@ -61,7 +62,7 @@ type Modal =
     };
 
 export function PlannerApp() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setTheme } = useTheme();
   const {
     toasts,
     success: toastOk,
@@ -548,6 +549,8 @@ export function PlannerApp() {
 
         {activeView === "guide" && <GuideView onNavigate={navigate} />}
 
+        {activeView === "config" && <ConfigView theme={theme} onSetTheme={setTheme} />}
+
         {activeView === "users" && user.role === "admin" && (
           <UsersView onlineIds={onlineIds} presenceReady={presenceReady} currentUserId={user.id} />
         )}
@@ -569,6 +572,11 @@ export function PlannerApp() {
             onEditMilestone={(milestone) => setModal({ kind: "milestoneEdit", milestone })}
             onDeleteMilestone={askDeleteMilestone}
             onImportActivity={importActivityFromFile}
+            onLogoChange={async (dataUrl) => {
+              const project = await api.updateProjectLogo(selectedProject.id, dataUrl);
+              setProjectEverywhere(project);
+              toastOk(dataUrl ? "Logotipo actualizado" : "Logotipo eliminado", selectedProject.name);
+            }}
             activityReload={activityReload}
             gantt={
               <GanttChart

@@ -63,6 +63,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   quien creó el expediente (o el Administrador) puede fijarlo a mano, con
   aviso antes de desactivar el modo automático e indicador verde/rojo.
   **Requiere aplicar la migración `20260917020000_add_task_auto_progress`.**
+- `015-tema-morado-configuracion-y-logo.md`: acento morado en modo oscuro,
+  módulo «Configuración» (engranaje) con selector de tema, y logotipo
+  opcional por expediente (150×150 a 250×250 px). **Requiere aplicar la
+  migración `20260922000000_add_project_logo`.**
 
 ## Cambios mayores (no son parches)
 

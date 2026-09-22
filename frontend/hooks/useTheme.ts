@@ -31,5 +31,5 @@ export function useTheme() {
     setTheme((current) => (current === "light" ? "dark" : "light"));
   }, []);
 
-  return { theme, toggleTheme };
+  return { theme, toggleTheme, setTheme };
 }

@@ -124,6 +124,12 @@ export const api = {
     request<Project>(`/projects/${id}`, { method: "PATCH", body: json(data), failMessage: "No fue posible actualizar el expediente" }),
   deleteProject: (id: string) =>
     request<void>(`/projects/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar el expediente" }),
+  updateProjectLogo: (id: string, logoUrl: string | null) =>
+    request<Project>(`/projects/${id}/logo`, {
+      method: "PUT",
+      body: json({ logoUrl }),
+      failMessage: "No fue posible actualizar el logotipo",
+    }),
   listActivity: (projectId: string) =>
     request<ActivityEvent[]>(`/projects/${projectId}/activity`, {
       retry: true,

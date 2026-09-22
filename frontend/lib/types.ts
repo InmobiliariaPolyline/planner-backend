@@ -78,6 +78,7 @@ export type Project = {
   durationMonths: number;
   progress: number;
   ownerName: string;
+  logoUrl?: string | null;
   createdById?: string | null;
   createdBy?: { id: string; name: string; role: string } | null;
   tasks?: RawTask[];
@@ -117,7 +118,8 @@ export type ActiveView =
   | "activity"
   | "settings"
   | "guide"
-  | "users";
+  | "users"
+  | "config";
 
 export type Notification = {
   id: number;

@@ -46,6 +46,9 @@ app.use(rateLimit({
   legacyHeaders: false,
   skip: (req) => req.path.startsWith('/shared'),
 }));
+// El logo del expediente viaja como imagen en base64 dentro del JSON: necesita
+// un cupo más generoso que el resto de la API, que solo maneja texto corto.
+app.use('/projects/:id/logo', express.json({ limit: '2mb' }));
 app.use(express.json({ limit: '10kb' }));
 
 // Ruta de prueba inicial
@@ -512,6 +515,47 @@ app.patch('/projects/:id', async (req: Request, res: Response) => {
     res.json(project);
   } catch (error) {
     respondError(error, res, 400, 'Error al actualizar el proyecto');
+  }
+});
+
+// Logotipo del expediente: opcional, editable en cualquier momento. Viaja
+// como data URI (imagen + base64); el tamaño en píxeles (150×150 a 250×250)
+// se valida en el navegador, aquí solo se cuida el formato y el peso.
+const LOGO_DATA_URL = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
+
+app.put('/projects/:id/logo', async (req: Request, res: Response) => {
+  try {
+    const projectId = String(req.params.id);
+    await assertProjectAccess(req.user!, projectId);
+    const raw = req.body?.logoUrl;
+    let logoUrl: string | null;
+    if (raw === null || raw === undefined || raw === '') {
+      logoUrl = null;
+    } else if (typeof raw !== 'string' || !LOGO_DATA_URL.test(raw)) {
+      res.status(400).json({ error: 'El logotipo debe ser una imagen PNG, JPG, WEBP o GIF.' });
+      return;
+    } else if (raw.length > 1_800_000) {
+      res.status(400).json({ error: 'La imagen pesa demasiado.' });
+      return;
+    } else {
+      logoUrl = raw;
+    }
+
+    const before = await prisma.project.findUnique({ where: { id: projectId }, select: { logoUrl: true, name: true } });
+    if (!before) { res.status(404).json({ error: 'Proyecto no encontrado' }); return; }
+    const project = await prisma.project.update({ where: { id: projectId }, data: { logoUrl }, include: projectInclude });
+    if (before.logoUrl !== logoUrl) {
+      await logEvent(projectId, {
+        action: 'project.logo',
+        entity: 'expediente',
+        target: project.name,
+        summary: logoUrl ? `Actualizó el logotipo de «${project.name}»` : `Quitó el logotipo de «${project.name}»`,
+        tone: 'neutral',
+      });
+    }
+    res.json(project);
+  } catch (error) {
+    respondError(error, res, 400, 'No fue posible actualizar el logotipo');
   }
 });
 
