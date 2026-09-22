@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { cleanText, requiredDate, requiredNumber } from '../src/lib/validation';
 import { assertDateOrder, monthsBetween } from '../src/lib/projectMath';
 import { newShareToken, parseRole } from '../src/lib/share';
+import { metricComponents, parseMaterialValues } from '../src/lib/materials';
 
 test('cleanText: obligatorio', () => {
   assert.throws(() => cleanText('', 'x'), /obligatorio/);
@@ -51,4 +52,23 @@ test('newShareToken: único y seguro para URL', () => {
   assert.notEqual(a, b);
   assert.match(a, /^[A-Za-z0-9_-]+$/);
   assert.ok(a.length >= 24);
+});
+
+test('metricComponents: respeta paréntesis y descarta la nota final', () => {
+  assert.deepEqual(metricComponents('Volumen (m³)'), ['Volumen (m³)']);
+  assert.deepEqual(metricComponents('Peso (kg / ton)'), ['Peso (kg / ton)']);
+  assert.deepEqual(metricComponents('Volumen (m³) / Área (m²)'), ['Volumen (m³)', 'Área (m²)']);
+  assert.deepEqual(metricComponents('Peso (kg / ton) / Longitud (m)'), ['Peso (kg / ton)', 'Longitud (m)']);
+  assert.deepEqual(metricComponents('Área (m²) — se cotiza por peso areal (g/m²)'), ['Área (m²)']);
+});
+
+test('parseMaterialValues: exige un número > 0 por cada valor de la métrica', () => {
+  const label = 'Peso (kg / ton) / Longitud (m)';
+  assert.throws(() => parseMaterialValues(undefined, label), /objeto|número/i);
+  assert.throws(() => parseMaterialValues({ 'Peso (kg / ton)': 5 }, label), /Longitud/);
+  assert.throws(() => parseMaterialValues({ 'Peso (kg / ton)': 0, 'Longitud (m)': 5 }, label), /Peso/);
+  assert.deepEqual(parseMaterialValues({ 'Peso (kg / ton)': 120, 'Longitud (m)': 5, extra: 1 }, label), {
+    'Peso (kg / ton)': 120,
+    'Longitud (m)': 5,
+  });
 });

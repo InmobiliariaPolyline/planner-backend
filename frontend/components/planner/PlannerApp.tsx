@@ -393,7 +393,7 @@ export function PlannerApp() {
       const created = await api.createTask(selectedProject.id, payload);
       const taskId = String((created as RawTask).id);
       for (const material of materials) {
-        await api.addTaskMaterial(taskId, { materialId: material.materialId, quantity: material.quantity });
+        await api.addTaskMaterial(taskId, { materialId: material.materialId, values: material.values });
       }
     }
     await refreshProject(selectedProject.id);

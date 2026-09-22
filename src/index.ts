@@ -13,6 +13,7 @@ import { assertProgressEditAccess, assertProjectAccess, assertTaskAccess, Projec
 import { attachPresence, isOnline } from './lib/presence';
 import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
 import { maskEmail } from './lib/email';
+import { formatMaterialValues, parseMaterialValues } from './lib/materials';
 import { CooldownError, COOLDOWN_SECONDS, issueTwoFactorCode, verifyTwoFactorCode } from './lib/twoFactor';
 
 const taskInclude = {
@@ -1013,13 +1014,14 @@ app.get('/materials', async (req, res) => {
 
 app.post('/tasks/:taskId/materials', async (req, res) => {
   try {
-    const { materialId, quantity } = req.body;
+    const { materialId, values } = req.body;
     const taskId = String(req.params.taskId);
     await assertTaskAccess(req.user!, taskId);
     const material = await prisma.material.findUnique({ where: { id: cleanText(materialId, 'materialId')! } });
     if (!material) { res.status(404).json({ error: 'Material no encontrado' }); return; }
+    const parsedValues = parseMaterialValues(values, material.metricLabel);
     const taskMaterial = await prisma.taskMaterial.create({
-      data: { taskId, materialId: material.id, quantity: requiredNumber(quantity, 'quantity') },
+      data: { taskId, materialId: material.id, values: parsedValues },
       include: { material: true },
     });
     const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true, name: true } });
@@ -1028,7 +1030,7 @@ app.post('/tasks/:taskId/materials', async (req, res) => {
         action: 'material.add',
         entity: 'material',
         target: task.name,
-        summary: `Agregó ${taskMaterial.quantity} de «${material.name}» a «${task.name}»`,
+        summary: `Agregó «${material.name}» a «${task.name}» (${formatMaterialValues(parsedValues)})`,
         tone: 'neutral',
       });
     }

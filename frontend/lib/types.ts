@@ -32,11 +32,13 @@ export type Material = {
   metricLabel: string;
 };
 
-/** Un material elegido para una tarea, con la cantidad indicada. Cada fila es
- * independiente: dos materiales de la misma categoría no se combinan. */
+/** Un material elegido para una tarea, con un número por cada valor que pide
+ * su métrica (p. ej. para "Peso (kg) / Longitud (m)": { "Peso (kg)": 120,
+ * "Longitud (m)": 5 }). Cada fila es independiente: dos materiales de la
+ * misma categoría no se combinan. */
 export type TaskMaterial = {
   id: string;
-  quantity: number;
+  values: Record<string, number>;
   material: Material;
 };
 

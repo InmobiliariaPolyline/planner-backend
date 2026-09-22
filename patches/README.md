@@ -80,6 +80,12 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   función de «métricas de rendimiento» de las tareas. **Requiere aplicar la
   migración `20260922020000_add_materials` y correr
   `npm run seed:materials`.**
+- `018-valores-numericos-por-material.md`: al elegir un material, en vez de
+  un campo único «Cantidad» aparece un campo numérico por cada valor que
+  pide su métrica (p. ej. «Peso (kg)» y «Longitud (m)» por separado).
+  **Requiere aplicar la migración `20260922030000_add_material_values`**
+  (borra los valores de materiales ya agregados con el parche 017, si los
+  hubiera).
 
 ## Cambios mayores (no son parches)
 

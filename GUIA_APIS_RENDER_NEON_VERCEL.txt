@@ -172,6 +172,11 @@ MIGRACIONES:
                                    `npm run seed:materials` con el
                                    DATABASE_URL de destino para cargar el
                                    catalogo de 501 materiales.
+    20260922030000_add_material_values  TaskMaterial.quantity (un numero) se
+                                   reemplaza por TaskMaterial.values (json):
+                                   un numero por cada valor que pide la
+                                   metrica del material, ver parche 018. No
+                                   hace falta volver a correr seed:materials.
 - La base original de Neon se creo con `prisma db push`. Para que Prisma marque
   la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
   sola vez con la DATABASE_URL de Neon:

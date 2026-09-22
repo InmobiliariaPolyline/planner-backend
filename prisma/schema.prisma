@@ -195,17 +195,21 @@ model Material {
   @@index([category])
 }
 
-/// Selección de un material para una tarea concreta, con la cantidad que se
-/// va a usar. Cada fila es independiente: si se eligen dos materiales de la
-/// misma categoría, cada uno conserva su propia densidad/métrica y su propia
-/// cantidad, nunca se combinan.
+/// Selección de un material para una tarea concreta. Cada fila es
+/// independiente: si se eligen dos materiales de la misma categoría, cada
+/// uno conserva su propia densidad/métrica y sus propios valores, nunca se
+/// combinan.
 model TaskMaterial {
   id         String   @id @default(uuid())
   taskId     String
   task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   materialId String
   material   Material @relation(fields: [materialId], references: [id])
-  quantity   Float
+  /// Un número por cada valor que pide la métrica del material en el
+  /// momento de agregarlo (p. ej. para "Peso (kg) / Longitud (m)":
+  /// { "Peso (kg)": 120, "Longitud (m)": 5 }). El usuario los ingresa a
+  /// mano; no se calculan solos.
+  values     Json     @default("{}")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

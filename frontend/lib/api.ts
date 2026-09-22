@@ -242,7 +242,7 @@ export const api = {
   // Catálogo de materiales y materiales por tarea
   listMaterials: (category?: string) =>
     request<Material[]>(`/materials${category ? `?category=${encodeURIComponent(category)}` : ""}`, { failMessage: "No fue posible cargar los materiales" }),
-  addTaskMaterial: (taskId: string, data: { materialId: string; quantity: number }) =>
+  addTaskMaterial: (taskId: string, data: { materialId: string; values: Record<string, number> }) =>
     request<TaskMaterial>(`/tasks/${taskId}/materials`, { method: "POST", body: json(data), failMessage: "No fue posible agregar el material" }),
   deleteTaskMaterial: (id: string) =>
     request<void>(`/task-materials/${id}`, { method: "DELETE", failMessage: "No fue posible quitar el material" }),
