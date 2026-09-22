@@ -151,8 +151,10 @@ export function PlannerApp() {
       try {
         const fresh = await api.getProject(projectId);
         setProjectEverywhere(fresh);
+        return fresh;
       } catch {
         /* si falla, se conserva el estado actual */
+        return null;
       }
     },
     [setProjectEverywhere],
@@ -659,7 +661,11 @@ export function PlannerApp() {
           onCreateArea={createTechnicalArea}
           onSubmit={(values) => saveTask(values, [], modal.task)}
           onExtrasChanged={() => {
-            void refreshProject(selectedProject.id);
+            const taskId = modal.task.id;
+            void refreshProject(selectedProject.id).then((fresh) => {
+              const raw = (fresh?.tasks ?? []).find((t) => String((t as RawTask).id) === taskId);
+              if (raw) setModal({ kind: "taskEdit", task: toTaskDetail(raw as RawTask) });
+            });
             void syncActivity(selectedProject.id);
           }}
           onClose={closeModal}
