@@ -408,6 +408,20 @@ a {
   border-color: color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
+/* Distinto del "Guardar cambios" / "Crear tarea" (morado): confirma que se
+   está sumando un elemento a una lista (material, enlace…), no guardando
+   el formulario completo. */
+.btn-success {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+.btn-success:hover:not(:disabled) {
+  background: var(--success-on-subtle);
+  border-color: var(--success-on-subtle);
+  transform: translateY(-1px);
+}
+
 .btn-block {
   width: 100%;
 }
@@ -958,6 +972,11 @@ input[type="checkbox"]:active {
   background: var(--danger-subtle);
   color: var(--danger-on-subtle);
   font-size: var(--text-sm);
+}
+.form-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 /* Campo con validación en tiempo real */

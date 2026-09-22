@@ -100,6 +100,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   material o enlace en la edición de una tarea, ya se ve al instante (el
   material sí se guardaba antes; solo tardaba en reflejarse porque
   esperaba una recarga completa del expediente). No requiere migración.
+- `022-boton-anadir-material-mas-claro.md`: el botón «Añadir material» es
+  ahora verde (antes del mismo tono que el resto) y lleva un texto de
+  ayuda debajo, para no confundirlo con «Guardar cambios» / «Crear tarea».
+  No requiere migración.
 
 ## Cambios mayores (no son parches)
 

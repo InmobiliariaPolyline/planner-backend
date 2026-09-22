@@ -196,10 +196,14 @@ function MaterialPicker({
           </div>
         </>
       )}
-      <button type="button" className="btn btn-secondary btn-sm" onClick={add} disabled={busy}>
+      <button type="button" className="btn btn-success btn-sm" onClick={add} disabled={busy}>
         <Icon name="plus" size={14} />
         {busy ? "Añadiendo…" : "Añadir material"}
       </button>
+      <p className="form-hint">
+        Pulsa aquí para sumar cada material a la lista de arriba. Elegirlo y llenar sus campos no
+        alcanza: sin este botón no queda registrado, ni al crear la tarea ni al guardar cambios.
+      </p>
     </div>
   );
 }
