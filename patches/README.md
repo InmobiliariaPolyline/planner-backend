@@ -86,6 +86,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   **Requiere aplicar la migración `20260922030000_add_material_values`**
   (borra los valores de materiales ya agregados con el parche 017, si los
   hubiera).
+- `019-cantidad-de-material-de-vuelta.md`: el parche 018 había quitado por
+  error el campo «Cantidad»; vuelve a estar junto a los campos de la
+  métrica (cantidad **y** valores de la métrica, no uno u otro). **Requiere
+  aplicar la migración `20260922040000_add_material_quantity_back`.**
 
 ## Cambios mayores (no son parches)
 

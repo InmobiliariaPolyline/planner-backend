@@ -205,6 +205,9 @@ model TaskMaterial {
   task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   materialId String
   material   Material @relation(fields: [materialId], references: [id])
+  /// Cantidad del material que se va a usar en la tarea (la unidad la da
+  /// `material.metricLabel`).
+  quantity   Float
   /// Un número por cada valor que pide la métrica del material en el
   /// momento de agregarlo (p. ej. para "Peso (kg) / Longitud (m)":
   /// { "Peso (kg)": 120, "Longitud (m)": 5 }). El usuario los ingresa a

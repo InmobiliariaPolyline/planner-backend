@@ -1014,14 +1014,15 @@ app.get('/materials', async (req, res) => {
 
 app.post('/tasks/:taskId/materials', async (req, res) => {
   try {
-    const { materialId, values } = req.body;
+    const { materialId, quantity, values } = req.body;
     const taskId = String(req.params.taskId);
     await assertTaskAccess(req.user!, taskId);
     const material = await prisma.material.findUnique({ where: { id: cleanText(materialId, 'materialId')! } });
     if (!material) { res.status(404).json({ error: 'Material no encontrado' }); return; }
+    const parsedQuantity = requiredNumber(quantity, 'quantity');
     const parsedValues = parseMaterialValues(values, material.metricLabel);
     const taskMaterial = await prisma.taskMaterial.create({
-      data: { taskId, materialId: material.id, values: parsedValues },
+      data: { taskId, materialId: material.id, quantity: parsedQuantity, values: parsedValues },
       include: { material: true },
     });
     const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true, name: true } });
@@ -1030,7 +1031,7 @@ app.post('/tasks/:taskId/materials', async (req, res) => {
         action: 'material.add',
         entity: 'material',
         target: task.name,
-        summary: `Agregó «${material.name}» a «${task.name}» (${formatMaterialValues(parsedValues)})`,
+        summary: `Agregó ${parsedQuantity} de «${material.name}» a «${task.name}» (${formatMaterialValues(parsedValues)})`,
         tone: 'neutral',
       });
     }

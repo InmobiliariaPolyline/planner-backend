@@ -61,25 +61,31 @@ export function taskToForm(task: TaskDetail): TaskFormValues {
 
 /** Un material elegido en el formulario de creación, antes de que la tarea
  * exista (se envía al backend justo después de crear la tarea). */
-export type PendingMaterial = { key: string; materialId: string; values: Record<string, number>; material: Material };
+export type PendingMaterial = {
+  key: string;
+  materialId: string;
+  quantity: number;
+  values: Record<string, number>;
+  material: Material;
+};
 
 /** Fila común para mostrar un material elegido, sea ya guardado (edición) o
  * pendiente de guardar (creación). */
-type MaterialRow = { id: string; values: Record<string, number>; material: Material };
+type MaterialRow = { id: string; quantity: number; values: Record<string, number>; material: Material };
 
 let pendingKeySeq = 0;
 
-/** Selector de materiales del catálogo: categoría → material → un valor por
- * cada dato que pide su métrica (p. ej. "Peso (kg)" y "Longitud (m)" por
- * separado). Cada material tiene su propia densidad y métrica, aunque
- * comparta categoría con otro ya elegido; por eso cada selección es una fila
- * independiente y nunca se combinan entre sí. */
+/** Selector de materiales del catálogo: categoría → material → cantidad a
+ * usar → un valor por cada dato que pide su métrica (p. ej. "Peso (kg)" y
+ * "Longitud (m)" por separado). Cada material tiene su propia densidad y
+ * métrica, aunque comparta categoría con otro ya elegido; por eso cada
+ * selección es una fila independiente y nunca se combinan entre sí. */
 function MaterialPicker({
   catalog,
   onAdd,
 }: {
   catalog: Material[];
-  onAdd: (materialId: string, values: Record<string, number>) => void;
+  onAdd: (materialId: string, quantity: number, values: Record<string, number>) => void;
 }) {
   const categories = useMemo(
     () => Array.from(new Set(catalog.map((m) => m.category))).sort((a, b) => a.localeCompare(b, "es")),
@@ -87,6 +93,7 @@ function MaterialPicker({
   );
   const [category, setCategory] = useState("");
   const [materialId, setMaterialId] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [valueInputs, setValueInputs] = useState<Record<string, string>>({});
   const [showErrors, setShowErrors] = useState(false);
 
@@ -96,7 +103,10 @@ function MaterialPicker({
   );
   const selected = catalog.find((m) => m.id === materialId) ?? null;
   const components = selected ? metricComponents(selected.metricLabel) : [];
-  const invalid = !materialId || components.some((c) => fieldError(valueInputs[c] ?? "", metricValueRules) !== null);
+  const invalid =
+    !materialId ||
+    fieldError(quantity, metricValueRules) !== null ||
+    components.some((c) => fieldError(valueInputs[c] ?? "", metricValueRules) !== null);
 
   function add() {
     if (invalid) {
@@ -105,8 +115,9 @@ function MaterialPicker({
     }
     const values: Record<string, number> = {};
     for (const component of components) values[component] = Number(valueInputs[component]);
-    onAdd(materialId, values);
+    onAdd(materialId, Number(quantity), values);
     setMaterialId("");
+    setQuantity("");
     setValueInputs({});
     setShowErrors(false);
   }
@@ -138,6 +149,7 @@ function MaterialPicker({
             value={materialId}
             onChange={(event) => {
               setMaterialId(event.target.value);
+              setQuantity("");
               setValueInputs({});
               setShowErrors(false);
             }}
@@ -156,6 +168,18 @@ function MaterialPicker({
           <p className="hero-lead" style={{ margin: 0 }}>
             Densidad de referencia: {selected.density} kg/m³ · Métrica: {selected.metricLabel}
           </p>
+          <ValidatedField
+            label="Cantidad a usar"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            example="12.5"
+            rules={metricValueRules}
+            value={quantity}
+            onChange={setQuantity}
+            showErrors={showErrors}
+            placement="top"
+          />
           <div className="form-grid">
             {components.map((component) => (
               <ValidatedField
@@ -189,7 +213,8 @@ function MaterialsList({ rows, onRemove }: { rows: MaterialRow[]; onRemove: (id:
       {rows.map((row) => (
         <li key={row.id}>
           <span>
-            {row.material.category} · {row.material.name} — {formatMaterialValues(row.values)} (
+            {row.material.category} · {row.material.name} — Cantidad: {row.quantity}
+            {Object.keys(row.values).length ? `, ${formatMaterialValues(row.values)}` : ""} (
             {row.material.density} kg/m³ ref.)
           </span>
           <button type="button" onClick={() => onRemove(row.id)} aria-label="Quitar material">
@@ -238,6 +263,7 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
 
   const materialRows: MaterialRow[] = (task.taskMaterials ?? []).map((tm) => ({
     id: tm.id,
+    quantity: tm.quantity,
     values: tm.values,
     material: tm.material,
   }));
@@ -249,7 +275,9 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
         <MaterialsList rows={materialRows} onRemove={(id) => run(() => api.deleteTaskMaterial(id))} />
         <MaterialPicker
           catalog={catalog}
-          onAdd={(materialId, values) => run(() => api.addTaskMaterial(task.id, { materialId, values }))}
+          onAdd={(materialId, quantity, values) =>
+            run(() => api.addTaskMaterial(task.id, { materialId, quantity, values }))
+          }
         />
       </div>
 
@@ -455,17 +483,17 @@ export function TaskFormModal({
           <div className="task-extra">
             <h3>Materiales</h3>
             <MaterialsList
-              rows={pendingMaterials.map((m) => ({ id: m.key, values: m.values, material: m.material }))}
+              rows={pendingMaterials.map((m) => ({ id: m.key, quantity: m.quantity, values: m.values, material: m.material }))}
               onRemove={(key) => setPendingMaterials((current) => current.filter((m) => m.key !== key))}
             />
             <MaterialPicker
               catalog={catalog}
-              onAdd={(materialId, values) => {
+              onAdd={(materialId, quantity, values) => {
                 const material = catalog.find((m) => m.id === materialId);
                 if (!material) return;
                 setPendingMaterials((current) => [
                   ...current,
-                  { key: `pending-${pendingKeySeq++}`, materialId, values, material },
+                  { key: `pending-${pendingKeySeq++}`, materialId, quantity, values, material },
                 ]);
               }}
             />

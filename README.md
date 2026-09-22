@@ -51,7 +51,7 @@ con un `id` de tipo UUID y llevan `createdAt` / `updatedAt`.
 | **TeamStatus** | «Estado de equipo» | Catálogo reutilizable: *Activo*, *Inactivo*… | No se puede borrar si hay participantes usándolo (**409**) |
 | **Milestone** | «Hito» / «Fecha clave» | Un evento con fecha y descripción dentro del expediente | — |
 | **Material** | «Material» | Catálogo de referencia (501 materiales, 27 categorías) con densidad (kg/m³) y métrica de cómputo | Se carga una vez con `npm run seed:materials`; no depende de un expediente |
-| **TaskMaterial** | Material elegido en una tarea | Un material del catálogo + `values` (un número por cada dato que pide su métrica, p. ej. peso y longitud por separado) | Cuelga de una tarea; cada fila es independiente aunque dos compartan categoría |
+| **TaskMaterial** | Material elegido en una tarea | Un material del catálogo + `quantity` (cantidad a usar) + `values` (un número por cada dato que pide su métrica, p. ej. peso y longitud por separado) | Cuelga de una tarea; cada fila es independiente aunque dos compartan categoría |
 | **DriveLink** | «Enlace de Drive» | Un enlace (http/https) a documentación de una tarea | Cuelga de una tarea |
 | **ShareLink** | «Enlace público» | Un token para abrir un expediente sin iniciar sesión | Rol `viewer` o `editor`. El token se puede **rotar** (regenerar); no caduca |
 | **ActivityEvent** | «Historial» | Un suceso del expediente: quién hizo qué y cuándo | La API lo escribe tras cada cambio; guarda el `antes → después` de los valores editados |
@@ -204,7 +204,7 @@ Cada operación de escritura además **deja un registro en el historial**
 | Método | Ruta | Cuerpo | Notas |
 | --- | --- | --- | --- |
 | `GET` | `/materials` | — (opcional `?category=`) | catálogo de referencia (501 materiales, 27 categorías) |
-| `POST` | `/tasks/:taskId/materials` | `materialId, values` (un número por cada dato que pide la métrica del material) | agrega un material elegido a la tarea |
+| `POST` | `/tasks/:taskId/materials` | `materialId, quantity, values` (`values`: un número por cada dato que pide la métrica del material) | agrega un material elegido a la tarea |
 | `DELETE` | `/task-materials/:id` | — | quita un material de la tarea (no borra el catálogo) |
 | `POST` | `/tasks/:taskId/drive-links` | `url` (debe empezar por `http://` o `https://`) | — |
 | `DELETE` | `/drive-links/:id` | — | — |

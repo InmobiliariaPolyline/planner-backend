@@ -177,6 +177,10 @@ MIGRACIONES:
                                    un numero por cada valor que pide la
                                    metrica del material, ver parche 018. No
                                    hace falta volver a correr seed:materials.
+    20260922040000_add_material_quantity_back  TaskMaterial vuelve a tener
+                                   quantity ademas de values (el parche 018
+                                   la habia quitado por error), ver parche
+                                   019.
 - La base original de Neon se creo con `prisma db push`. Para que Prisma marque
   la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
   sola vez con la DATABASE_URL de Neon:
