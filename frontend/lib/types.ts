@@ -19,15 +19,25 @@ export type Task = {
   phase: boolean;
   dependency: string;
   technicalArea: string;
-  metrics: number;
+  materials: number;
   driveLinks: number;
 };
 
-export type PerformanceMetric = {
+/** Material del catálogo de referencia (GET /materials). */
+export type Material = {
   id: string;
-  unit: string;
-  ratePerDay: number;
-  divisor: number;
+  category: string;
+  name: string;
+  density: number;
+  metricLabel: string;
+};
+
+/** Un material elegido para una tarea, con la cantidad indicada. Cada fila es
+ * independiente: dos materiales de la misma categoría no se combinan. */
+export type TaskMaterial = {
+  id: string;
+  quantity: number;
+  material: Material;
 };
 
 export type DriveLink = {
@@ -47,7 +57,7 @@ export type TaskDetail = {
   dependency: string;
   technicalAreaId: string;
   technicalArea?: { id: string; name: string } | null;
-  performanceMetrics?: PerformanceMetric[];
+  taskMaterials?: TaskMaterial[];
   driveLinks?: DriveLink[];
 };
 

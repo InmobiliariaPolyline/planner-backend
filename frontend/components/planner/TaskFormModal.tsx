@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { friendlyError } from "@/lib/errors";
@@ -8,14 +8,13 @@ import { SelectOrCreate } from "@/components/ui/SelectOrCreate";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import { api } from "@/lib/api";
 import { isoDay } from "@/lib/format";
-import type { TaskDetail, TaskFormValues, TechnicalArea } from "@/lib/types";
+import type { Material, TaskDetail, TaskFormValues, TechnicalArea } from "@/lib/types";
 
 const notEmpty = (v: string) => v.trim().length > 0;
 const maxLen = (v: string) => v.trim().length <= 300;
 const noAngles = (v: string) => !/[<>]/.test(v);
 const validDate = (v: string) => v === "" || !Number.isNaN(Date.parse(v));
 const isNumber = (v: string) => v.trim() === "" || Number.isFinite(Number(v));
-const isInteger = (v: string) => v.trim() === "" || /^\d+$/.test(v.trim());
 const isHttpUrl = (v: string) => v.trim() === "" || /^https?:\/\/\S+/i.test(v.trim());
 
 const textRules: Rule[] = [
@@ -27,16 +26,10 @@ const optionalTextRules: Rule[] = [
   { label: "Máximo 300 caracteres", test: maxLen },
   { label: "Sin los símbolos < o >", test: noAngles },
 ];
-const unitRules: Rule[] = textRules;
-const rateRules: Rule[] = [
+const quantityRules: Rule[] = [
   { label: "Obligatorio", test: notEmpty },
   { label: "Solo números", test: isNumber },
-  { label: "Mayor o igual a 0", test: (v) => v.trim() === "" || Number(v) >= 0 },
-];
-const divisorRules: Rule[] = [
-  { label: "Obligatorio", test: notEmpty },
-  { label: "Número entero", test: isInteger },
-  { label: "Mayor o igual a 1", test: (v) => v.trim() === "" || Number(v) >= 1 },
+  { label: "Mayor que 0", test: (v) => v.trim() === "" || Number(v) > 0 },
 ];
 const urlRules: Rule[] = [
   { label: "Obligatorio", test: notEmpty },
@@ -65,19 +58,136 @@ export function taskToForm(task: TaskDetail): TaskFormValues {
   };
 }
 
-function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () => void }) {
-  const [metricUnit, setMetricUnit] = useState("");
-  const [metricRate, setMetricRate] = useState("");
-  const [metricDivisor, setMetricDivisor] = useState("1");
-  const [metricErrors, setMetricErrors] = useState(false);
+/** Un material elegido en el formulario de creación, antes de que la tarea
+ * exista (se envía al backend justo después de crear la tarea). */
+export type PendingMaterial = { key: string; materialId: string; quantity: number; material: Material };
+
+/** Fila común para mostrar un material elegido, sea ya guardado (edición) o
+ * pendiente de guardar (creación). */
+type MaterialRow = { id: string; quantity: number; material: Material };
+
+let pendingKeySeq = 0;
+
+/** Selector de materiales del catálogo: categoría → material → cantidad.
+ * Cada material tiene su propia densidad y métrica, aunque comparta
+ * categoría con otro ya elegido; por eso cada selección es una fila
+ * independiente y nunca se combinan entre sí. */
+function MaterialPicker({ catalog, onAdd }: { catalog: Material[]; onAdd: (materialId: string, quantity: number) => void }) {
+  const categories = useMemo(
+    () => Array.from(new Set(catalog.map((m) => m.category))).sort((a, b) => a.localeCompare(b, "es")),
+    [catalog],
+  );
+  const [category, setCategory] = useState("");
+  const [materialId, setMaterialId] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+
+  const materialsInCategory = useMemo(
+    () => catalog.filter((m) => m.category === category).sort((a, b) => a.name.localeCompare(b.name, "es")),
+    [catalog, category],
+  );
+  const selected = catalog.find((m) => m.id === materialId) ?? null;
+  const invalid = !materialId || fieldError(quantity, quantityRules) !== null;
+
+  function add() {
+    if (invalid) {
+      setShowErrors(true);
+      return;
+    }
+    onAdd(materialId, Number(quantity));
+    setMaterialId("");
+    setQuantity("");
+    setShowErrors(false);
+  }
+
+  return (
+    <div className="form">
+      <div className="form-row">
+        <span>Categoría de material</span>
+        <select
+          value={category}
+          onChange={(event) => {
+            setCategory(event.target.value);
+            setMaterialId("");
+          }}
+        >
+          <option value="">Selecciona una categoría</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      </div>
+      {category && (
+        <div className="form-row">
+          <span>Material</span>
+          <select value={materialId} onChange={(event) => setMaterialId(event.target.value)}>
+            <option value="">Selecciona un material</option>
+            {materialsInCategory.map((material) => (
+              <option key={material.id} value={material.id}>
+                {material.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {selected && (
+        <p className="hero-lead" style={{ margin: 0 }}>
+          Densidad: {selected.density} kg/m³ · Métrica: {selected.metricLabel}
+        </p>
+      )}
+      <div className="form-grid">
+        <ValidatedField
+          label="Cantidad"
+          type="number"
+          inputMode="decimal"
+          min="0"
+          example="12.5"
+          rules={quantityRules}
+          value={quantity}
+          onChange={setQuantity}
+          showErrors={showErrors}
+          placement="top"
+        />
+      </div>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={add}>
+        <Icon name="plus" size={14} />
+        Añadir material
+      </button>
+    </div>
+  );
+}
+
+function MaterialsList({ rows, onRemove }: { rows: MaterialRow[]; onRemove: (id: string) => void }) {
+  return (
+    <ul className="chip-list">
+      {rows.map((row) => (
+        <li key={row.id}>
+          <span>
+            {row.material.category} · {row.material.name} — {row.quantity} ({row.material.metricLabel},{" "}
+            {row.material.density} kg/m³)
+          </span>
+          <button type="button" onClick={() => onRemove(row.id)} aria-label="Quitar material">
+            <Icon name="x" size={13} />
+          </button>
+        </li>
+      ))}
+      {!rows.length && <li className="muted">Sin materiales.</li>}
+    </ul>
+  );
+}
+
+function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => void }) {
+  const [catalog, setCatalog] = useState<Material[]>([]);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkErrors, setLinkErrors] = useState(false);
   const [error, setError] = useState("");
 
-  const metricInvalid =
-    fieldError(metricUnit, unitRules) !== null ||
-    fieldError(metricRate, rateRules) !== null ||
-    fieldError(metricDivisor, divisorRules) !== null;
+  useEffect(() => {
+    api.listMaterials().then(setCatalog).catch((loadError) => setError(friendlyError(loadError)));
+  }, []);
+
   const linkInvalid = fieldError(linkUrl, urlRules) !== null;
 
   async function run(action: () => Promise<unknown>) {
@@ -88,24 +198,6 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
     } catch (actionError) {
       setError(friendlyError(actionError));
     }
-  }
-
-  function addMetric() {
-    if (metricInvalid) {
-      setMetricErrors(true);
-      return;
-    }
-    run(async () => {
-      await api.createMetric(task.id, {
-        unit: metricUnit.trim(),
-        ratePerDay: Number(metricRate),
-        divisor: Number(metricDivisor) || 1,
-      });
-      setMetricUnit("");
-      setMetricRate("");
-      setMetricDivisor("1");
-      setMetricErrors(false);
-    });
   }
 
   function addLink() {
@@ -120,66 +212,21 @@ function MetricsAndLinks({ task, onChanged }: { task: TaskDetail; onChanged: () 
     });
   }
 
+  const materialRows: MaterialRow[] = (task.taskMaterials ?? []).map((tm) => ({
+    id: tm.id,
+    quantity: tm.quantity,
+    material: tm.material,
+  }));
+
   return (
     <div className="task-extras">
       <div className="task-extra">
-        <h3>Métricas de rendimiento</h3>
-        <ul className="chip-list">
-          {(task.performanceMetrics ?? []).map((metric) => (
-            <li key={metric.id}>
-              <span>
-                {metric.unit} · {metric.ratePerDay}/día ÷ {metric.divisor}
-              </span>
-              <button type="button" onClick={() => run(() => api.deleteMetric(metric.id))} aria-label="Eliminar métrica">
-                <Icon name="x" size={13} />
-              </button>
-            </li>
-          ))}
-          {!(task.performanceMetrics ?? []).length && <li className="muted">Sin métricas.</li>}
-        </ul>
-        <div className="form">
-          <ValidatedField
-            label="Unidad"
-            example="m³, ml, kg"
-            rules={unitRules}
-            value={metricUnit}
-            onChange={setMetricUnit}
-            showErrors={metricErrors}
-            placement="top"
-          />
-          <div className="form-grid">
-            <ValidatedField
-              label="Ritmo por día"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              example="120"
-              rules={rateRules}
-              value={metricRate}
-              onChange={setMetricRate}
-              showErrors={metricErrors}
-              placement="top"
-            />
-            <ValidatedField
-              label="Divisor"
-              type="number"
-              inputMode="numeric"
-              min="1"
-              step="1"
-              example="1"
-              rules={divisorRules}
-              value={metricDivisor}
-              onChange={setMetricDivisor}
-              showErrors={metricErrors}
-              placement="top"
-              align="right"
-            />
-          </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={addMetric}>
-            <Icon name="plus" size={14} />
-            Añadir métrica
-          </button>
-        </div>
+        <h3>Materiales</h3>
+        <MaterialsList rows={materialRows} onRemove={(id) => run(() => api.deleteTaskMaterial(id))} />
+        <MaterialPicker
+          catalog={catalog}
+          onAdd={(materialId, quantity) => run(() => api.addTaskMaterial(task.id, { materialId, quantity }))}
+        />
       </div>
 
       <div className="task-extra">
@@ -233,7 +280,7 @@ export function TaskFormModal({
   initialTask?: TaskDetail;
   technicalAreas: TechnicalArea[];
   onCreateArea: (name: string) => Promise<TechnicalArea>;
-  onSubmit: (values: TaskFormValues) => Promise<void>;
+  onSubmit: (values: TaskFormValues, materials: PendingMaterial[]) => Promise<void>;
   onExtrasChanged?: () => void;
   onClose: () => void;
 }) {
@@ -243,7 +290,14 @@ export function TaskFormModal({
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [error, setError] = useState("");
+  const [catalog, setCatalog] = useState<Material[]>([]);
+  const [pendingMaterials, setPendingMaterials] = useState<PendingMaterial[]>([]);
   const isEdit = mode === "edit";
+
+  useEffect(() => {
+    if (isEdit) return;
+    api.listMaterials().then(setCatalog).catch(() => undefined);
+  }, [isEdit]);
 
   const set = <K extends keyof TaskFormValues>(key: K, value: TaskFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }));
@@ -268,7 +322,7 @@ export function TaskFormModal({
     }
     setSaving(true);
     try {
-      await onSubmit(values);
+      await onSubmit(values, pendingMaterials);
     } catch (submitError) {
       setError(friendlyError(submitError));
       setSaving(false);
@@ -372,8 +426,31 @@ export function TaskFormModal({
         </button>
       </form>
 
+      {!isEdit && (
+        <div className="task-extras">
+          <div className="task-extra">
+            <h3>Materiales</h3>
+            <MaterialsList
+              rows={pendingMaterials.map((m) => ({ id: m.key, quantity: m.quantity, material: m.material }))}
+              onRemove={(key) => setPendingMaterials((current) => current.filter((m) => m.key !== key))}
+            />
+            <MaterialPicker
+              catalog={catalog}
+              onAdd={(materialId, quantity) => {
+                const material = catalog.find((m) => m.id === materialId);
+                if (!material) return;
+                setPendingMaterials((current) => [
+                  ...current,
+                  { key: `pending-${pendingKeySeq++}`, materialId, quantity, material },
+                ]);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {isEdit && initialTask && (
-        <MetricsAndLinks task={initialTask} onChanged={() => onExtrasChanged?.()} />
+        <TaskExtras task={initialTask} onChanged={() => onExtrasChanged?.()} />
       )}
     </Modal>
   );

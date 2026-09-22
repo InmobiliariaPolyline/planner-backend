@@ -73,6 +73,13 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   plan gratuito de Resend solo envía a la cuenta con la que se creó, así que
   no sirve todavía para usuarios reales. **Requiere aplicar la migración
   `20260922010000_add_two_factor_auth`.**
+- `017-materiales-por-tarea.md`: al crear o editar una tarea se puede elegir
+  uno o varios materiales de un catálogo de 501 materiales (27 categorías),
+  indicando la cantidad de cada uno; cada material conserva su propia
+  densidad y métrica aunque comparta categoría con otro. Reemplaza la
+  función de «métricas de rendimiento» de las tareas. **Requiere aplicar la
+  migración `20260922020000_add_materials` y correr
+  `npm run seed:materials`.**
 
 ## Cambios mayores (no son parches)
 

@@ -13,7 +13,7 @@ export const projectInclude = {
   tasks: {
     include: {
       technicalArea: true,
-      performanceMetrics: true,
+      taskMaterials: { include: { material: true } },
       driveLinks: true
     }
   },

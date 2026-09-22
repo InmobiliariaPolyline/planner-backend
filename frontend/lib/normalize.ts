@@ -1,4 +1,4 @@
-import type { DriveLink, PerformanceMetric, RawTask, Task, TaskDetail } from "./types";
+import type { DriveLink, RawTask, Task, TaskDetail, TaskMaterial } from "./types";
 import { isoDay, shortDate, toISO } from "./format";
 
 /** Convierte la tarea cruda del backend a la forma que usan los formularios. */
@@ -15,8 +15,8 @@ export function toTaskDetail(raw: RawTask): TaskDetail {
     dependency: String(raw.dependency ?? ""),
     technicalAreaId: String(raw.technicalAreaId ?? area?.id ?? ""),
     technicalArea: area?.id ? { id: area.id, name: area.name ?? "" } : null,
-    performanceMetrics: Array.isArray(raw.performanceMetrics)
-      ? (raw.performanceMetrics as PerformanceMetric[])
+    taskMaterials: Array.isArray(raw.taskMaterials)
+      ? (raw.taskMaterials as TaskMaterial[])
       : [],
     driveLinks: Array.isArray(raw.driveLinks) ? (raw.driveLinks as DriveLink[]) : [],
   };
@@ -43,7 +43,7 @@ export function normalizeTasks(tasks: RawTask[] = []): Task[] {
         typeof area === "object" && area !== null
           ? String((area as { name?: string }).name ?? "Sin área")
           : "Sin área",
-      metrics: Array.isArray(task.performanceMetrics) ? task.performanceMetrics.length : 0,
+      materials: Array.isArray(task.taskMaterials) ? task.taskMaterials.length : 0,
       driveLinks: Array.isArray(task.driveLinks) ? task.driveLinks.length : 0,
     };
   });

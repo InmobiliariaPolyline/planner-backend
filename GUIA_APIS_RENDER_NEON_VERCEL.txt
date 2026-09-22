@@ -165,6 +165,13 @@ MIGRACIONES:
     20260922010000_add_two_factor_auth  User.twoFactorEmail/Enabled y tabla
                                    TwoFactorCode (verificacion en dos pasos,
                                    construida pero en pausa, ver parche 016).
+    20260922020000_add_materials   tablas Material (catalogo) y TaskMaterial
+                                   (materiales elegidos por tarea, con
+                                   cantidad); elimina PerformanceMetric, ver
+                                   parche 017. Tras aplicarla, correr una vez
+                                   `npm run seed:materials` con el
+                                   DATABASE_URL de destino para cargar el
+                                   catalogo de 501 materiales.
 - La base original de Neon se creo con `prisma db push`. Para que Prisma marque
   la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
   sola vez con la DATABASE_URL de Neon:

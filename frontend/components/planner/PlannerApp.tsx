@@ -39,7 +39,7 @@ import { LoadingScreen, LoginScreen } from "./Screens";
 import { ConfigView } from "./ConfigView";
 import { SettingsView } from "./SettingsView";
 import { ShareManager } from "./ShareManager";
-import { TaskFormModal } from "./TaskFormModal";
+import { TaskFormModal, type PendingMaterial } from "./TaskFormModal";
 import { UsersView } from "./UsersView";
 
 type Modal =
@@ -372,7 +372,7 @@ export function PlannerApp() {
   }
 
   // ── Tareas ───────────────────────────────────────────────────────────────
-  async function saveTask(values: TaskFormValues, existing?: TaskDetail) {
+  async function saveTask(values: TaskFormValues, materials: PendingMaterial[] = [], existing?: TaskDetail) {
     if (!selectedProject) return;
     const payload = {
       name: values.name.trim(),
@@ -383,10 +383,17 @@ export function PlannerApp() {
       isPhase: values.isPhase,
       dependency: values.dependency.trim(),
     };
-    if (existing) await api.updateTask(existing.id, payload);
-    // Sin "progress" en el body: el backend la crea en modo automático y
-    // calcula el % inicial según las fechas.
-    else await api.createTask(selectedProject.id, payload);
+    if (existing) {
+      await api.updateTask(existing.id, payload);
+    } else {
+      // Sin "progress" en el body: el backend la crea en modo automático y
+      // calcula el % inicial según las fechas.
+      const created = await api.createTask(selectedProject.id, payload);
+      const taskId = String((created as RawTask).id);
+      for (const material of materials) {
+        await api.addTaskMaterial(taskId, { materialId: material.materialId, quantity: material.quantity });
+      }
+    }
     await refreshProject(selectedProject.id);
     setModal(null);
     void syncActivity(selectedProject.id);
@@ -640,7 +647,7 @@ export function PlannerApp() {
           mode="create"
           technicalAreas={technicalAreas}
           onCreateArea={createTechnicalArea}
-          onSubmit={(values) => saveTask(values)}
+          onSubmit={(values, materials) => saveTask(values, materials)}
           onClose={closeModal}
         />
       )}
@@ -650,7 +657,7 @@ export function PlannerApp() {
           initialTask={modal.task}
           technicalAreas={technicalAreas}
           onCreateArea={createTechnicalArea}
-          onSubmit={(values) => saveTask(values, modal.task)}
+          onSubmit={(values) => saveTask(values, [], modal.task)}
           onExtrasChanged={() => {
             void refreshProject(selectedProject.id);
             void syncActivity(selectedProject.id);

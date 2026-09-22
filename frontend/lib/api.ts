@@ -6,14 +6,15 @@ import type {
   BasicUser,
   DriveLink,
   ManagedUser,
+  Material,
   Milestone,
-  PerformanceMetric,
   Project,
   RawTask,
   ShareLink,
   ShareRole,
   SharedPayload,
   TaskDetail,
+  TaskMaterial,
   TeamMember,
   UserDashboard,
 } from "./types";
@@ -238,11 +239,15 @@ export const api = {
   deleteTask: (taskId: string) =>
     request<void>(`/tasks/${taskId}`, { method: "DELETE", failMessage: "No fue posible eliminar la tarea" }),
 
-  // Métricas de rendimiento y enlaces de Drive
-  createMetric: (taskId: string, data: { unit: string; ratePerDay: number; divisor: number }) =>
-    request<PerformanceMetric>(`/tasks/${taskId}/performance-metrics`, { method: "POST", body: json(data), failMessage: "No fue posible crear la métrica" }),
-  deleteMetric: (id: string) =>
-    request<void>(`/performance-metrics/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar la métrica" }),
+  // Catálogo de materiales y materiales por tarea
+  listMaterials: (category?: string) =>
+    request<Material[]>(`/materials${category ? `?category=${encodeURIComponent(category)}` : ""}`, { failMessage: "No fue posible cargar los materiales" }),
+  addTaskMaterial: (taskId: string, data: { materialId: string; quantity: number }) =>
+    request<TaskMaterial>(`/tasks/${taskId}/materials`, { method: "POST", body: json(data), failMessage: "No fue posible agregar el material" }),
+  deleteTaskMaterial: (id: string) =>
+    request<void>(`/task-materials/${id}`, { method: "DELETE", failMessage: "No fue posible quitar el material" }),
+
+  // Enlaces de Drive
   createDriveLink: (taskId: string, url: string) =>
     request<DriveLink>(`/tasks/${taskId}/drive-links`, { method: "POST", body: json({ url }), failMessage: "No fue posible añadir el enlace" }),
   deleteDriveLink: (id: string) =>

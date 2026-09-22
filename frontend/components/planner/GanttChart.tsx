@@ -224,7 +224,7 @@ export function GanttChart({
                     <span>
                       {task.owner}
                       <small>
-                        {task.technicalArea} · {task.metrics} métricas · {task.driveLinks} Drive
+                        {task.technicalArea} · {task.materials} materiales · {task.driveLinks} Drive
                       </small>
                     </span>
                   </div>

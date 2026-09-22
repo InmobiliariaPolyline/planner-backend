@@ -155,8 +155,8 @@ model Task {
   ownerName       String
 
   // Relaciones
-  performanceMetrics PerformanceMetric[]
-  driveLinks         DriveLink[]
+  taskMaterials TaskMaterial[]
+  driveLinks    DriveLink[]
 }
 
 model Milestone {
@@ -169,15 +169,48 @@ model Milestone {
   updatedAt   DateTime @updatedAt
 }
 
-model PerformanceMetric {
+/// Catálogo de materiales de referencia (densidad y métrica de cómputo),
+/// cargado una vez desde una lista preparada por el usuario (ver
+/// prisma/seed-materials.ts). Cada material —no solo su categoría— tiene sus
+/// propios valores, por lo que dos materiales de la misma categoría pueden
+/// diferir entre sí.
+model Material {
+  id          String   @id @default(uuid())
+  /// Ej. "Concreto", "Acero y hierro", "Madera"…
+  category    String
+  /// Nombre exacto del material dentro de su categoría.
+  name        String
+  /// Densidad de referencia en kg/m³ (o el valor equivalente indicado en la
+  /// ficha original cuando el material se cotiza por otra vía, p. ej. g/m²).
+  density     Float
+  /// Métrica(s) de cómputo que aplica, tal como viene en la lista de
+  /// referencia (texto libre: "Volumen (m³)", "Peso (kg / ton)", etc.).
+  metricLabel String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  taskMaterials TaskMaterial[]
+
+  @@unique([category, name])
+  @@index([category])
+}
+
+/// Selección de un material para una tarea concreta, con la cantidad que se
+/// va a usar. Cada fila es independiente: si se eligen dos materiales de la
+/// misma categoría, cada uno conserva su propia densidad/métrica y su propia
+/// cantidad, nunca se combinan.
+model TaskMaterial {
   id         String   @id @default(uuid())
-  unit       String
-  ratePerDay Float
-  divisor    Int
   taskId     String
   task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id])
+  quantity   Float
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([taskId])
+  @@index([materialId])
 }
 
 model DriveLink {

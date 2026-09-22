@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "tsx --test test/*.test.ts",
-    "seed:users": "tsx scripts/seed-users.ts"
+    "seed:users": "tsx scripts/seed-users.ts",
+    "seed:materials": "tsx scripts/seed-materials.ts"
   },
   "keywords": [],
   "author": "",

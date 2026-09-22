@@ -50,14 +50,15 @@ con un `id` de tipo UUID y llevan `createdAt` / `updatedAt`.
 | **TeamMember** | «Participante» | Una persona asignada a un expediente | Tiene un estado tomado del catálogo `TeamStatus` |
 | **TeamStatus** | «Estado de equipo» | Catálogo reutilizable: *Activo*, *Inactivo*… | No se puede borrar si hay participantes usándolo (**409**) |
 | **Milestone** | «Hito» / «Fecha clave» | Un evento con fecha y descripción dentro del expediente | — |
-| **PerformanceMetric** | «Métrica de rendimiento» | Ritmo esperado de una tarea: unidad, `ratePerDay`, `divisor` | Cuelga de una tarea |
+| **Material** | «Material» | Catálogo de referencia (501 materiales, 27 categorías) con densidad (kg/m³) y métrica de cómputo | Se carga una vez con `npm run seed:materials`; no depende de un expediente |
+| **TaskMaterial** | Material elegido en una tarea | Un material del catálogo + `quantity` para esa tarea | Cuelga de una tarea; cada fila es independiente aunque dos compartan categoría |
 | **DriveLink** | «Enlace de Drive» | Un enlace (http/https) a documentación de una tarea | Cuelga de una tarea |
 | **ShareLink** | «Enlace público» | Un token para abrir un expediente sin iniciar sesión | Rol `viewer` o `editor`. El token se puede **rotar** (regenerar); no caduca |
 | **ActivityEvent** | «Historial» | Un suceso del expediente: quién hizo qué y cuándo | La API lo escribe tras cada cambio; guarda el `antes → después` de los valores editados |
 
 **Borrado en cascada:** al eliminar un expediente se borran sus tareas, hitos,
-participantes y enlaces. Al eliminar una tarea se borran sus métricas y enlaces
-de Drive.
+participantes y enlaces. Al eliminar una tarea se borran sus materiales
+elegidos (`TaskMaterial`, no el catálogo `Material`) y enlaces de Drive.
 
 ### Enlaces públicos con más detalle
 
@@ -134,7 +135,7 @@ components/
     ActivityTimeline.tsx   pestaña «Historial»: línea de tiempo de sucesos del expediente
     GanttChart.tsx         cronograma con líneas de cuadrícula y marcador de «hoy»
     ProjectFormModal.tsx   alta y edición de expediente
-    TaskFormModal.tsx      alta y edición de tarea + métricas + enlaces de Drive
+    TaskFormModal.tsx      alta y edición de tarea + materiales + enlaces de Drive
     MemberFormModal.tsx    alta de participante
     MilestoneFormModal.tsx alta y edición de hito
     SettingsView.tsx       «Catálogos»: alta y baja de áreas técnicas y estados de equipo
@@ -198,14 +199,15 @@ Crear, editar o borrar una tarea **recalcula el `progress` del expediente**.
 Cada operación de escritura además **deja un registro en el historial**
 (`ActivityEvent`) con el actor, un resumen y el `antes → después` de los valores.
 
-### Métricas y enlaces de una tarea
+### Materiales y enlaces de una tarea
 
-| Método | Ruta | Cuerpo |
-| --- | --- | --- |
-| `POST` | `/tasks/:taskId/performance-metrics` | `unit, ratePerDay, divisor` |
-| `DELETE` | `/performance-metrics/:id` | — |
-| `POST` | `/tasks/:taskId/drive-links` | `url` (debe empezar por `http://` o `https://`) |
-| `DELETE` | `/drive-links/:id` | — |
+| Método | Ruta | Cuerpo | Notas |
+| --- | --- | --- | --- |
+| `GET` | `/materials` | — (opcional `?category=`) | catálogo de referencia (501 materiales, 27 categorías) |
+| `POST` | `/tasks/:taskId/materials` | `materialId, quantity` | agrega un material elegido a la tarea |
+| `DELETE` | `/task-materials/:id` | — | quita un material de la tarea (no borra el catálogo) |
+| `POST` | `/tasks/:taskId/drive-links` | `url` (debe empezar por `http://` o `https://`) | — |
+| `DELETE` | `/drive-links/:id` | — | — |
 
 ### Enlaces públicos — gestión
 

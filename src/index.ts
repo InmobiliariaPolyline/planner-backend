@@ -15,7 +15,11 @@ import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
 import { maskEmail } from './lib/email';
 import { CooldownError, COOLDOWN_SECONDS, issueTwoFactorCode, verifyTwoFactorCode } from './lib/twoFactor';
 
-const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
+const taskInclude = {
+  technicalArea: true,
+  taskMaterials: { include: { material: true } },
+  driveLinks: true,
+} as const;
 
 const dateOnly = (value: unknown): string =>
   value instanceof Date ? value.toISOString().slice(0, 10) : value ? String(value) : '—';
@@ -996,44 +1000,61 @@ app.patch('/tasks/:id', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/tasks/:taskId/performance-metrics', async (req, res) => {
+app.get('/materials', async (req, res) => {
   try {
-    const { unit, ratePerDay, divisor } = req.body;
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+    const materials = await prisma.material.findMany({
+      where: category ? { category } : undefined,
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+    res.json(materials);
+  } catch (error) { respondError(error, res, 400, 'Error al obtener los materiales'); }
+});
+
+app.post('/tasks/:taskId/materials', async (req, res) => {
+  try {
+    const { materialId, quantity } = req.body;
     const taskId = String(req.params.taskId);
     await assertTaskAccess(req.user!, taskId);
-    const metric = await prisma.performanceMetric.create({ data: {
-      unit: cleanText(unit, 'unit')!, ratePerDay: requiredNumber(ratePerDay, 'ratePerDay'), divisor: requiredNumber(divisor, 'divisor', 1), taskId
-    } });
+    const material = await prisma.material.findUnique({ where: { id: cleanText(materialId, 'materialId')! } });
+    if (!material) { res.status(404).json({ error: 'Material no encontrado' }); return; }
+    const taskMaterial = await prisma.taskMaterial.create({
+      data: { taskId, materialId: material.id, quantity: requiredNumber(quantity, 'quantity') },
+      include: { material: true },
+    });
     const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true, name: true } });
     if (task) {
       await logEvent(task.projectId, {
-        action: 'metric.add',
-        entity: 'métrica',
+        action: 'material.add',
+        entity: 'material',
         target: task.name,
-        summary: `Añadió una métrica de rendimiento a «${task.name}» (${metric.unit}, ${metric.ratePerDay}/día)`,
+        summary: `Agregó ${taskMaterial.quantity} de «${material.name}» a «${task.name}»`,
         tone: 'neutral',
       });
     }
-    res.status(201).json(metric);
-  } catch (error) { respondError(error, res, 400, 'Error al crear la métrica'); }
+    res.status(201).json(taskMaterial);
+  } catch (error) { respondError(error, res, 400, 'Error al agregar el material'); }
 });
 
-app.delete('/performance-metrics/:id', async (req, res) => {
+app.delete('/task-materials/:id', async (req, res) => {
   try {
-    const metric = await prisma.performanceMetric.findUnique({ where: { id: String(req.params.id) }, include: { task: { select: { projectId: true, name: true } } } });
-    if (!metric) { res.status(404).json({ error: 'Métrica no encontrada' }); return; }
-    await assertProjectAccess(req.user!, metric.task.projectId);
-    await prisma.performanceMetric.delete({ where: { id: String(req.params.id) } });
-    await logEvent(metric.task.projectId, {
-      action: 'metric.remove',
-      entity: 'métrica',
-      target: metric.task.name,
-      summary: `Eliminó una métrica de rendimiento de «${metric.task.name}»`,
+    const taskMaterial = await prisma.taskMaterial.findUnique({
+      where: { id: String(req.params.id) },
+      include: { task: { select: { projectId: true, name: true } }, material: true },
+    });
+    if (!taskMaterial) { res.status(404).json({ error: 'Material no encontrado en la tarea' }); return; }
+    await assertProjectAccess(req.user!, taskMaterial.task.projectId);
+    await prisma.taskMaterial.delete({ where: { id: String(req.params.id) } });
+    await logEvent(taskMaterial.task.projectId, {
+      action: 'material.remove',
+      entity: 'material',
+      target: taskMaterial.task.name,
+      summary: `Quitó «${taskMaterial.material.name}» de «${taskMaterial.task.name}»`,
       tone: 'negative',
     });
     res.status(204).send();
   }
-  catch (_error) { res.status(404).json({ error: 'Métrica no encontrada' }); }
+  catch (_error) { res.status(404).json({ error: 'Material no encontrado en la tarea' }); }
 });
 
 app.post('/tasks/:taskId/drive-links', async (req, res) => {
