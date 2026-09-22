@@ -30,6 +30,10 @@ type Modal =
   | { kind: "taskDelete"; task: Task }
   | { kind: "progress"; id: string; progress: number; previous: number; name: string };
 
+/** Quien crea una tarea desde un enlace público (sin sesión) queda así como
+ * responsable, igual que en el historial del expediente. */
+const SHARED_CREATOR_NAME = "Colaborador (enlace)";
+
 export function SharedExpediente({ token, payload }: { token: string; payload: SharedPayload }) {
   const canEdit = payload.role === "editor";
 
@@ -68,17 +72,21 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
   }
 
   async function saveTask(values: TaskFormValues, existing?: TaskDetail) {
-    const payloadData = {
+    const payloadData: Record<string, unknown> = {
       name: values.name.trim(),
-      ownerName: values.ownerName.trim(),
       startDate: values.startDate,
       endDate: values.endDate,
       technicalAreaId: values.technicalAreaId,
       isPhase: values.isPhase,
-      dependency: values.dependency.trim(),
     };
-    if (existing) await api.patchSharedTask(token, existing.id, payloadData);
-    else await api.createSharedTask(token, { ...payloadData, progress: 0 });
+    // No se manda ownerName al editar: el responsable queda fijo desde que
+    // se creó la tarea.
+    if (existing) {
+      await api.patchSharedTask(token, existing.id, payloadData);
+    } else {
+      payloadData.ownerName = SHARED_CREATOR_NAME;
+      await api.createSharedTask(token, { ...payloadData, progress: 0 });
+    }
     await reload();
     setModal(null);
     setNotice(existing ? "Tarea actualizada." : "Tarea creada.");
@@ -285,6 +293,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
       {modal?.kind === "taskCreate" && (
         <TaskFormModal
           mode="create"
+          creatorName={SHARED_CREATOR_NAME}
           technicalAreas={areas}
           onCreateArea={createArea}
           onSubmit={(values) => saveTask(values)}

@@ -90,6 +90,12 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   error el campo «Cantidad»; vuelve a estar junto a los campos de la
   métrica (cantidad **y** valores de la métrica, no uno u otro). **Requiere
   aplicar la migración `20260922040000_add_material_quantity_back`.**
+- `020-responsable-automatico-y-pestana-tareas.md`: quien crea una tarea
+  queda como responsable automáticamente (ya no se escribe a mano); se
+  quita el campo «Depende de»; y se agrega una pestaña «Tareas» entre
+  «Cronograma Gantt» e «Historial» con el listado desglosable de las
+  tareas del expediente (ID, responsable, materiales con categoría,
+  cantidad y valores de su métrica). No requiere migración.
 
 ## Cambios mayores (no son parches)
 

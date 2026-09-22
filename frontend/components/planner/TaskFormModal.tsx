@@ -23,10 +23,6 @@ const textRules: Rule[] = [
   { label: "Máximo 300 caracteres", test: maxLen },
   { label: "Sin los símbolos < o >", test: noAngles },
 ];
-const optionalTextRules: Rule[] = [
-  { label: "Máximo 300 caracteres", test: maxLen },
-  { label: "Sin los símbolos < o >", test: noAngles },
-];
 const metricValueRules: Rule[] = [
   { label: "Obligatorio", test: notEmpty },
   { label: "Solo números", test: isNumber },
@@ -39,23 +35,19 @@ const urlRules: Rule[] = [
 
 const EMPTY: TaskFormValues = {
   name: "",
-  ownerName: "",
   startDate: "",
   endDate: "",
   technicalAreaId: "",
   isPhase: false,
-  dependency: "",
 };
 
 export function taskToForm(task: TaskDetail): TaskFormValues {
   return {
     name: task.name,
-    ownerName: task.ownerName,
     startDate: isoDay(task.startDate),
     endDate: isoDay(task.endDate),
     technicalAreaId: task.technicalAreaId,
     isPhase: task.isPhase,
-    dependency: task.dependency ?? "",
   };
 }
 
@@ -322,6 +314,7 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
 export function TaskFormModal({
   mode,
   initialTask,
+  creatorName,
   technicalAreas,
   onCreateArea,
   onSubmit,
@@ -330,6 +323,9 @@ export function TaskFormModal({
 }: {
   mode: "create" | "edit";
   initialTask?: TaskDetail;
+  /** Nombre de quien crea la tarea: se vuelve el responsable automáticamente,
+   * sin pedirlo en el formulario (solo aplica al crear). */
+  creatorName?: string;
   technicalAreas: TechnicalArea[];
   onCreateArea: (name: string) => Promise<TechnicalArea>;
   onSubmit: (values: TaskFormValues, materials: PendingMaterial[]) => Promise<void>;
@@ -356,8 +352,6 @@ export function TaskFormModal({
 
   const invalid =
     fieldError(values.name, textRules) !== null ||
-    fieldError(values.ownerName, textRules) !== null ||
-    fieldError(values.dependency, optionalTextRules) !== null ||
     !values.startDate ||
     !values.endDate ||
     !validDate(values.startDate) ||
@@ -427,14 +421,10 @@ export function TaskFormModal({
             showErrors={showErrors}
           />
         </div>
-        <ValidatedField
-          label="Responsable"
-          example="Cuadrilla A"
-          rules={textRules}
-          value={values.ownerName}
-          onChange={(v) => set("ownerName", v)}
-          showErrors={showErrors}
-        />
+        <p className="hero-lead" style={{ margin: 0 }}>
+          Responsable: <strong>{isEdit ? initialTask?.ownerName : creatorName || "—"}</strong>
+          {!isEdit && " (quien crea la tarea)"}
+        </p>
         <SelectOrCreate
           label="Área técnica"
           example="Obra civil, Estructura, Instalaciones"
@@ -450,25 +440,14 @@ export function TaskFormModal({
           required
           showErrors={showErrors}
         />
-        <div className="form-grid">
-          <ValidatedField
-            label="Depende de (opcional)"
-            example="Movimiento de tierras"
-            rules={optionalTextRules}
-            value={values.dependency}
-            onChange={(v) => set("dependency", v)}
-            showErrors={showErrors}
-            placement="top"
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={values.isPhase}
+            onChange={(e) => set("isPhase", e.target.checked)}
           />
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={values.isPhase}
-              onChange={(e) => set("isPhase", e.target.checked)}
-            />
-            <span>Es una fase</span>
-          </label>
-        </div>
+          <span>Es una fase</span>
+        </label>
 
         {showErrors && invalid && <p className="form-error">Revisa los campos marcados en rojo.</p>}
         {error && <p className="form-error">{error}</p>}

@@ -128,6 +128,7 @@ export type ActiveView =
   | "projects"
   | "overview"
   | "gantt"
+  | "tasks"
   | "activity"
   | "settings"
   | "guide"
@@ -151,12 +152,10 @@ export type ProjectFormValues = {
 
 export type TaskFormValues = {
   name: string;
-  ownerName: string;
   startDate: string;
   endDate: string;
   technicalAreaId: string;
   isPhase: boolean;
-  dependency: string;
 };
 
 export type ShareRole = "viewer" | "editor";

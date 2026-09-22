@@ -25,7 +25,13 @@ function buildCrumbs(
     crumbs.push({ label: selectedProject.name, onClick: () => onNavigate("overview") });
     crumbs.push({
       label:
-        activeView === "gantt" ? "Cronograma" : activeView === "activity" ? "Historial" : "Resumen",
+        activeView === "gantt"
+          ? "Cronograma"
+          : activeView === "tasks"
+            ? "Tareas"
+            : activeView === "activity"
+              ? "Historial"
+              : "Resumen",
     });
   }
   return crumbs;

@@ -231,7 +231,6 @@ export function GanttChart({
 
                   <div className="gantt-dates">
                     {task.start} – {task.end}
-                    <small>Depende de: {task.dependency || "—"}</small>
                   </div>
 
                   <div className="gantt-progress">

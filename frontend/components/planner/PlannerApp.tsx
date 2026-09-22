@@ -376,20 +376,22 @@ export function PlannerApp() {
   // ── Tareas ───────────────────────────────────────────────────────────────
   async function saveTask(values: TaskFormValues, materials: PendingMaterial[] = [], existing?: TaskDetail) {
     if (!selectedProject) return;
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: values.name.trim(),
-      ownerName: values.ownerName.trim(),
       startDate: values.startDate,
       endDate: values.endDate,
       technicalAreaId: values.technicalAreaId,
       isPhase: values.isPhase,
-      dependency: values.dependency.trim(),
     };
     if (existing) {
+      // No se manda ownerName: quien creó la tarea sigue siendo el
+      // responsable, no se puede reasignar desde el formulario de edición.
       await api.updateTask(existing.id, payload);
     } else {
-      // Sin "progress" en el body: el backend la crea en modo automático y
+      // Quien crea la tarea es automáticamente el responsable. Sin
+      // "progress" en el body: el backend la crea en modo automático y
       // calcula el % inicial según las fechas.
+      payload.ownerName = user?.name ?? "Sin responsable";
       const created = await api.createTask(selectedProject.id, payload);
       const taskId = String((created as RawTask).id);
       for (const material of materials) {
@@ -516,8 +518,14 @@ export function PlannerApp() {
     );
   }
 
-  const detailTab: "overview" | "gantt" | "activity" =
-    activeView === "gantt" ? "gantt" : activeView === "activity" ? "activity" : "overview";
+  const detailTab: "overview" | "gantt" | "tasks" | "activity" =
+    activeView === "gantt"
+      ? "gantt"
+      : activeView === "tasks"
+        ? "tasks"
+        : activeView === "activity"
+          ? "activity"
+          : "overview";
   const banner = serverWaking ? "Conectando con el servidor… (puede tardar si estaba inactivo)" : apiMessage;
 
   return (
@@ -584,7 +592,7 @@ export function PlannerApp() {
           <UsersView onlineIds={onlineIds} presenceReady={presenceReady} currentUserId={user.id} />
         )}
 
-        {(activeView === "overview" || activeView === "gantt" || activeView === "activity") && selectedProject && (
+        {(activeView === "overview" || activeView === "gantt" || activeView === "tasks" || activeView === "activity") && selectedProject && (
           <ProjectDetailView
             project={selectedProject}
             taskCount={selectedProject.tasks?.length ?? 0}
@@ -622,7 +630,7 @@ export function PlannerApp() {
           />
         )}
 
-        {(activeView === "overview" || activeView === "gantt" || activeView === "activity") && !selectedProject && (
+        {(activeView === "overview" || activeView === "gantt" || activeView === "tasks" || activeView === "activity") && !selectedProject && (
           <div className="view">
             <p className="banner">Selecciona un expediente para ver su detalle.</p>
           </div>
@@ -651,6 +659,7 @@ export function PlannerApp() {
       {modal?.kind === "taskCreate" && selectedProject && (
         <TaskFormModal
           mode="create"
+          creatorName={user.name}
           technicalAreas={technicalAreas}
           onCreateArea={createTechnicalArea}
           onSubmit={(values, materials) => saveTask(values, materials)}

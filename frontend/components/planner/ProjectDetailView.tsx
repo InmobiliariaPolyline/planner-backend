@@ -8,6 +8,7 @@ import { exportProjectExcel, exportProjectPdf } from "@/lib/transfer";
 import type { Milestone, Project } from "@/lib/types";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { ProjectLogoUpload } from "./ProjectLogoUpload";
+import { TaskDetailsPanel } from "./TaskDetailsPanel";
 
 export function ProjectDetailView({
   project,
@@ -31,9 +32,9 @@ export function ProjectDetailView({
 }: {
   project: Project;
   taskCount: number;
-  activeTab: "overview" | "gantt" | "activity";
+  activeTab: "overview" | "gantt" | "tasks" | "activity";
   banner: string;
-  onTab: (tab: "overview" | "gantt" | "activity") => void;
+  onTab: (tab: "overview" | "gantt" | "tasks" | "activity") => void;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -129,6 +130,15 @@ export function ProjectDetailView({
         <button
           type="button"
           role="tab"
+          aria-selected={activeTab === "tasks"}
+          className={activeTab === "tasks" ? "tab is-active" : "tab"}
+          onClick={() => onTab("tasks")}
+        >
+          Tareas <span className="count">{taskCount}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={activeTab === "activity"}
           className={activeTab === "activity" ? "tab is-active" : "tab"}
           onClick={() => onTab("activity")}
@@ -143,6 +153,8 @@ export function ProjectDetailView({
           onImport={onImportActivity}
           reloadKey={members.length + milestones.length + taskCount + activityReload}
         />
+      ) : activeTab === "tasks" ? (
+        <TaskDetailsPanel tasks={project.tasks ?? []} />
       ) : activeTab === "overview" ? (
         <>
           <div className="stat-grid">

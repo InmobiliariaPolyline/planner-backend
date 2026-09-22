@@ -225,10 +225,16 @@ const SECTIONS: Section[] = [
     intro: "Las tareas viven en la pestaña «Cronograma Gantt» del expediente.",
     steps: [
       { do: "Abre el expediente y entra en «Cronograma Gantt»." },
-      { do: "Pulsa «Nueva tarea»: nombre, fechas, responsable y área técnica." },
+      {
+        do: "Pulsa «Nueva tarea»: nombre, fechas y área técnica. Quien la crea queda como responsable automáticamente.",
+      },
       {
         do: "Guarda.",
         result: "La tarea aparece como una barra en la línea de tiempo, con la marca de «hoy».",
+      },
+      {
+        do: "Entra en la pestaña «Tareas» (entre Cronograma e Historial) para ver la ficha completa de cada tarea.",
+        result: "Al hacer clic se despliega: ID, nombre, responsable y cada material elegido con su cantidad y valores.",
       },
     ],
     figure: <GanttShot />,
