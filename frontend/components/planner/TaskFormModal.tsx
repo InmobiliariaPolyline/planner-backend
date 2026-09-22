@@ -74,9 +74,13 @@ let pendingKeySeq = 0;
  * selección es una fila independiente y nunca se combinan entre sí. */
 function MaterialPicker({
   catalog,
+  busy = false,
   onAdd,
 }: {
   catalog: Material[];
+  /** true mientras se guarda el material anterior (edición): evita doble
+   * envío y deja claro que la acción está en curso. */
+  busy?: boolean;
   onAdd: (materialId: string, quantity: number, values: Record<string, number>) => void;
 }) {
   const categories = useMemo(
@@ -101,6 +105,7 @@ function MaterialPicker({
     components.some((c) => fieldError(valueInputs[c] ?? "", metricValueRules) !== null);
 
   function add() {
+    if (busy) return;
     if (invalid) {
       setShowErrors(true);
       return;
@@ -191,9 +196,9 @@ function MaterialPicker({
           </div>
         </>
       )}
-      <button type="button" className="btn btn-secondary btn-sm" onClick={add}>
+      <button type="button" className="btn btn-secondary btn-sm" onClick={add} disabled={busy}>
         <Icon name="plus" size={14} />
-        Añadir material
+        {busy ? "Añadiendo…" : "Añadir material"}
       </button>
     </div>
   );
@@ -224,6 +229,16 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
   const [linkUrl, setLinkUrl] = useState("");
   const [linkErrors, setLinkErrors] = useState(false);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Se muestran de inmediato con la respuesta real del servidor, sin esperar
+  // a que el modal reciba la tarea refrescada (esa consulta completa puede
+  // tardar varios segundos, sobre todo si el servidor estaba dormido, y
+  // durante esa espera parecía que "no pasaba nada" al añadir un material).
+  const [materialRows, setMaterialRows] = useState<MaterialRow[]>(
+    (task.taskMaterials ?? []).map((tm) => ({ id: tm.id, quantity: tm.quantity, values: tm.values, material: tm.material })),
+  );
+  const [linkRows, setLinkRows] = useState(task.driveLinks ?? []);
 
   useEffect(() => {
     api.listMaterials().then(setCatalog).catch((loadError) => setError(friendlyError(loadError)));
@@ -231,14 +246,33 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
 
   const linkInvalid = fieldError(linkUrl, urlRules) !== null;
 
-  async function run(action: () => Promise<unknown>) {
+  function addMaterial(materialId: string, quantity: number, values: Record<string, number>) {
     setError("");
-    try {
-      await action();
-      onChanged();
-    } catch (actionError) {
-      setError(friendlyError(actionError));
-    }
+    setBusy(true);
+    api
+      .addTaskMaterial(task.id, { materialId, quantity, values })
+      .then((created) => {
+        setMaterialRows((current) => [
+          ...current,
+          { id: created.id, quantity: created.quantity, values: created.values, material: created.material },
+        ]);
+        onChanged();
+      })
+      .catch((actionError) => setError(friendlyError(actionError)))
+      .finally(() => setBusy(false));
+  }
+
+  function removeMaterial(id: string) {
+    setError("");
+    const previous = materialRows;
+    setMaterialRows((current) => current.filter((row) => row.id !== id));
+    api
+      .deleteTaskMaterial(id)
+      .then(onChanged)
+      .catch((actionError) => {
+        setMaterialRows(previous);
+        setError(friendlyError(actionError));
+      });
   }
 
   function addLink() {
@@ -246,47 +280,55 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
       setLinkErrors(true);
       return;
     }
-    run(async () => {
-      await api.createDriveLink(task.id, linkUrl.trim());
-      setLinkUrl("");
-      setLinkErrors(false);
-    });
+    setError("");
+    setBusy(true);
+    api
+      .createDriveLink(task.id, linkUrl.trim())
+      .then((created) => {
+        setLinkRows((current) => [...current, created]);
+        setLinkUrl("");
+        setLinkErrors(false);
+        onChanged();
+      })
+      .catch((actionError) => setError(friendlyError(actionError)))
+      .finally(() => setBusy(false));
   }
 
-  const materialRows: MaterialRow[] = (task.taskMaterials ?? []).map((tm) => ({
-    id: tm.id,
-    quantity: tm.quantity,
-    values: tm.values,
-    material: tm.material,
-  }));
+  function removeLink(id: string) {
+    setError("");
+    const previous = linkRows;
+    setLinkRows((current) => current.filter((row) => row.id !== id));
+    api
+      .deleteDriveLink(id)
+      .then(onChanged)
+      .catch((actionError) => {
+        setLinkRows(previous);
+        setError(friendlyError(actionError));
+      });
+  }
 
   return (
     <div className="task-extras">
       <div className="task-extra">
         <h3>Materiales</h3>
-        <MaterialsList rows={materialRows} onRemove={(id) => run(() => api.deleteTaskMaterial(id))} />
-        <MaterialPicker
-          catalog={catalog}
-          onAdd={(materialId, quantity, values) =>
-            run(() => api.addTaskMaterial(task.id, { materialId, quantity, values }))
-          }
-        />
+        <MaterialsList rows={materialRows} onRemove={removeMaterial} />
+        <MaterialPicker catalog={catalog} busy={busy} onAdd={addMaterial} />
       </div>
 
       <div className="task-extra">
         <h3>Enlaces de Drive</h3>
         <ul className="chip-list">
-          {(task.driveLinks ?? []).map((link) => (
+          {linkRows.map((link) => (
             <li key={link.id}>
               <a href={link.url} target="_blank" rel="noreferrer noopener">
                 {link.url}
               </a>
-              <button type="button" onClick={() => run(() => api.deleteDriveLink(link.id))} aria-label="Eliminar enlace">
+              <button type="button" onClick={() => removeLink(link.id)} aria-label="Eliminar enlace">
                 <Icon name="x" size={13} />
               </button>
             </li>
           ))}
-          {!(task.driveLinks ?? []).length && <li className="muted">Sin enlaces.</li>}
+          {!linkRows.length && <li className="muted">Sin enlaces.</li>}
         </ul>
         <div className="form">
           <ValidatedField
@@ -299,9 +341,9 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
             showErrors={linkErrors}
             placement="top"
           />
-          <button type="button" className="btn btn-secondary btn-sm" onClick={addLink}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={addLink} disabled={busy}>
             <Icon name="plus" size={14} />
-            Añadir enlace
+            {busy ? "Añadiendo…" : "Añadir enlace"}
           </button>
         </div>
       </div>

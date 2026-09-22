@@ -96,6 +96,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   «Cronograma Gantt» e «Historial» con el listado desglosable de las
   tareas del expediente (ID, responsable, materiales con categoría,
   cantidad y valores de su métrica). No requiere migración.
+- `021-materiales-no-se-veian-al-instante.md`: al agregar/quitar un
+  material o enlace en la edición de una tarea, ya se ve al instante (el
+  material sí se guardaba antes; solo tardaba en reflejarse porque
+  esperaba una recarga completa del expediente). No requiere migración.
 
 ## Cambios mayores (no son parches)
 
