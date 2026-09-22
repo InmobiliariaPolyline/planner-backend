@@ -12,6 +12,8 @@ import { CREATABLE_ROLES, hashPassword, requireAuth, ROLE_LABEL, signToken, slug
 import { assertProgressEditAccess, assertProjectAccess, assertTaskAccess, ProjectAccessError, respondError, visibleProjectsWhere } from './lib/access';
 import { attachPresence, isOnline } from './lib/presence';
 import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
+import { maskEmail } from './lib/email';
+import { CooldownError, COOLDOWN_SECONDS, issueTwoFactorCode, verifyTwoFactorCode } from './lib/twoFactor';
 
 const taskInclude = { technicalArea: true, performanceMetrics: true, driveLinks: true } as const;
 
@@ -68,6 +70,10 @@ app.get('/health', (_req: Request, res: Response) => {
 // Cupo aparte y más estricto para el login: dificulta probar contraseñas a
 // fuerza bruta sin afectar al resto de la API.
 app.use('/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false }));
+// Cupo aparte para los códigos de verificación en dos pasos: son varias
+// llamadas por sesión (pedir, reenviar, confirmar) pero igual hay que
+// dificultar que alguien pruebe códigos a fuerza bruta.
+app.use('/auth/2fa', rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false }));
 
 app.post('/auth/login', async (req: Request, res: Response) => {
   try {
@@ -84,11 +90,56 @@ app.post('/auth/login', async (req: Request, res: Response) => {
       res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
       return;
     }
+    if (record.twoFactorEnabled && record.twoFactorEmail) {
+      const { challengeId, cooldownSeconds } = await issueTwoFactorCode(record.id, 'login', record.twoFactorEmail);
+      res.json({ twoFactorRequired: true, challengeId, cooldownSeconds, emailHint: maskEmail(record.twoFactorEmail) });
+      return;
+    }
     const user = { id: record.id, username: record.username, name: record.name, role: record.role as Role };
     res.json({ token: signToken(user), user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'No fue posible iniciar sesión. Inténtalo de nuevo en un momento.' });
+  }
+});
+
+/** Termina el login: cambia un desafío de "login" verificado por la sesión real. */
+async function completeLogin(userId: string, res: Response): Promise<void> {
+  const record = await prisma.user.findUnique({ where: { id: userId } });
+  if (!record) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
+  const user = { id: record.id, username: record.username, name: record.name, role: record.role as Role };
+  res.json({ token: signToken(user), user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
+}
+
+// Segundo paso del login (verificación en dos pasos). Sin sesión todavía:
+// ver PUBLIC_PATHS en src/lib/auth.ts.
+app.post('/auth/2fa/login-verify', async (req: Request, res: Response) => {
+  try {
+    const challengeId = cleanText(req.body?.challengeId, 'challengeId', false);
+    const code = cleanText(req.body?.code, 'code', false);
+    if (!challengeId || !code) { res.status(400).json({ error: 'Escribe el código que te enviamos.' }); return; }
+    const { userId, purpose } = await verifyTwoFactorCode(challengeId, code);
+    if (purpose !== 'login') { res.status(400).json({ error: 'Ese código no es de inicio de sesión.' }); return; }
+    await completeLogin(userId, res);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible verificar el código' });
+  }
+});
+
+app.post('/auth/2fa/login-resend', async (req: Request, res: Response) => {
+  try {
+    const challengeId = cleanText(req.body?.challengeId, 'challengeId', false);
+    if (!challengeId) { res.status(400).json({ error: 'Falta el identificador del código.' }); return; }
+    const existing = await prisma.twoFactorCode.findUnique({ where: { id: challengeId } });
+    if (!existing || existing.purpose !== 'login') {
+      res.status(404).json({ error: 'Esa sesión de acceso ya no es válida. Vuelve a iniciar sesión.' });
+      return;
+    }
+    const { challengeId: newId, cooldownSeconds } = await issueTwoFactorCode(existing.userId, 'login', existing.email);
+    res.json({ challengeId: newId, cooldownSeconds });
+  } catch (error) {
+    if (error instanceof CooldownError) { res.status(429).json({ error: error.message, retryAfterSeconds: error.retryAfterSeconds }); return; }
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible reenviar el código' });
   }
 });
 
@@ -100,6 +151,106 @@ app.use(requireAuth);
 app.get('/auth/me', (req: Request, res: Response) => {
   const user = req.user!;
   res.json({ user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
+});
+
+// Cambiar la propia contraseña desde Configuración > Perfil. No pide
+// verificación en dos pasos (esa función está en pausa por ahora, ver
+// patches/016-*); sí exige repetir la contraseña actual.
+app.patch('/auth/password', async (req: Request, res: Response) => {
+  try {
+    const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+    const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'Escribe tu contraseña actual y la nueva.' });
+      return;
+    }
+    const record = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!record) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
+    const valid = await verifyPassword(currentPassword, record.passwordHash);
+    if (!valid) { res.status(401).json({ error: 'Tu contraseña actual no es correcta.' }); return; }
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.user.update({ where: { id: record.id }, data: { passwordHash } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'No fue posible cambiar la contraseña' });
+  }
+});
+
+// ── Verificación en dos pasos (vincular/quitar correo) — EN PAUSA ──────────
+// El backend queda listo, pero no hay ninguna forma de activarlo desde la
+// interfaz: Resend, en el plan gratuito, solo deja enviar correos a la
+// dirección dueña de la cuenta. Se retoma cuando se verifique un dominio
+// propio en Resend (ver patches/016-*.md).
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.get('/auth/2fa/status', async (req: Request, res: Response) => {
+  try {
+    const record = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { twoFactorEmail: true, twoFactorEnabled: true } });
+    res.json({
+      enabled: Boolean(record?.twoFactorEnabled),
+      emailHint: record?.twoFactorEmail ? maskEmail(record.twoFactorEmail) : null,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'No fue posible obtener el estado de la verificación en dos pasos' });
+  }
+});
+
+app.post('/auth/2fa/link/start', async (req: Request, res: Response) => {
+  try {
+    const email = cleanText(req.body?.email, 'email', false)?.toLowerCase();
+    if (!email || !EMAIL_PATTERN.test(email)) { res.status(400).json({ error: 'Escribe un correo válido.' }); return; }
+    const { challengeId, cooldownSeconds } = await issueTwoFactorCode(req.user!.id, 'link', email);
+    res.json({ challengeId, cooldownSeconds });
+  } catch (error) {
+    if (error instanceof CooldownError) { res.status(429).json({ error: error.message, retryAfterSeconds: error.retryAfterSeconds }); return; }
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible enviar el código' });
+  }
+});
+
+app.post('/auth/2fa/link/confirm', async (req: Request, res: Response) => {
+  try {
+    const challengeId = cleanText(req.body?.challengeId, 'challengeId', false);
+    const code = cleanText(req.body?.code, 'code', false);
+    if (!challengeId || !code) { res.status(400).json({ error: 'Escribe el código que te enviamos.' }); return; }
+    const { userId, purpose, email } = await verifyTwoFactorCode(challengeId, code);
+    if (purpose !== 'link' || userId !== req.user!.id) { res.status(400).json({ error: 'Ese código no corresponde a esta vinculación.' }); return; }
+    await prisma.user.update({ where: { id: userId }, data: { twoFactorEmail: email, twoFactorEnabled: true } });
+    res.json({ enabled: true, emailHint: maskEmail(email) });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible confirmar el código' });
+  }
+});
+
+app.post('/auth/2fa/unlink/start', async (req: Request, res: Response) => {
+  try {
+    const current = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { twoFactorEmail: true, twoFactorEnabled: true } });
+    if (!current?.twoFactorEnabled || !current.twoFactorEmail) {
+      res.status(400).json({ error: 'No tienes una verificación en dos pasos activa.' });
+      return;
+    }
+    const { challengeId, cooldownSeconds } = await issueTwoFactorCode(req.user!.id, 'unlink', current.twoFactorEmail);
+    res.json({ challengeId, cooldownSeconds });
+  } catch (error) {
+    if (error instanceof CooldownError) { res.status(429).json({ error: error.message, retryAfterSeconds: error.retryAfterSeconds }); return; }
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible enviar el código' });
+  }
+});
+
+app.post('/auth/2fa/unlink/confirm', async (req: Request, res: Response) => {
+  try {
+    const challengeId = cleanText(req.body?.challengeId, 'challengeId', false);
+    const code = cleanText(req.body?.code, 'code', false);
+    if (!challengeId || !code) { res.status(400).json({ error: 'Escribe el código que te enviamos.' }); return; }
+    const { userId, purpose } = await verifyTwoFactorCode(challengeId, code);
+    if (purpose !== 'unlink' || userId !== req.user!.id) { res.status(400).json({ error: 'Ese código no corresponde a esta solicitud.' }); return; }
+    await prisma.user.update({ where: { id: userId }, data: { twoFactorEmail: null, twoFactorEnabled: false } });
+    res.json({ enabled: false });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible confirmar el código' });
+  }
 });
 
 // ── Usuarios (solo Administrador) ───────────────────────────────────────────

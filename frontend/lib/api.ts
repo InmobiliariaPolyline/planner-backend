@@ -105,15 +105,61 @@ const json = (data: unknown) => JSON.stringify(data);
 
 export type SessionUser = { id: string; username: string; name: string; role: string; roleLabel: string };
 
+/** Resultado de POST /auth/login: sesión directa, o un desafío de verificación en dos pasos. */
+export type LoginResult =
+  | { twoFactorRequired: true; challengeId: string; cooldownSeconds: number; emailHint: string }
+  | { twoFactorRequired?: false; token: string; user: SessionUser };
+
+export type TwoFactorChallenge = { challengeId: string; cooldownSeconds: number };
+export type TwoFactorStatus = { enabled: boolean; emailHint: string | null };
+
 export const api = {
   // Sesión
   login: (username: string, password: string) =>
-    request<{ token: string; user: SessionUser }>("/auth/login", {
+    request<LoginResult>("/auth/login", {
       method: "POST",
       body: json({ username, password }),
       failMessage: "No fue posible iniciar sesión",
     }),
   me: () => request<{ user: SessionUser }>("/auth/me", { failMessage: "No fue posible validar la sesión" }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: true }>("/auth/password", {
+      method: "PATCH",
+      body: json({ currentPassword, newPassword }),
+      failMessage: "No fue posible cambiar la contraseña",
+    }),
+  verifyLoginCode: (challengeId: string, code: string) =>
+    request<{ token: string; user: SessionUser }>("/auth/2fa/login-verify", {
+      method: "POST",
+      body: json({ challengeId, code }),
+      failMessage: "No fue posible verificar el código",
+    }),
+  resendLoginCode: (challengeId: string) =>
+    request<TwoFactorChallenge>("/auth/2fa/login-resend", {
+      method: "POST",
+      body: json({ challengeId }),
+      failMessage: "No fue posible reenviar el código",
+    }),
+
+  // Verificación en dos pasos — en pausa, ver patches/016-*.md. El backend
+  // sigue disponible; la interfaz no la ofrece todavía.
+  get2FAStatus: () => request<TwoFactorStatus>("/auth/2fa/status", { failMessage: "No fue posible obtener el estado" }),
+  start2FALink: (email: string) =>
+    request<TwoFactorChallenge>("/auth/2fa/link/start", { method: "POST", body: json({ email }), failMessage: "No fue posible enviar el código" }),
+  confirm2FALink: (challengeId: string, code: string) =>
+    request<{ enabled: true; emailHint: string }>("/auth/2fa/link/confirm", {
+      method: "POST",
+      body: json({ challengeId, code }),
+      failMessage: "No fue posible confirmar el código",
+    }),
+  start2FAUnlink: () =>
+    request<TwoFactorChallenge>("/auth/2fa/unlink/start", { method: "POST", body: json({}), failMessage: "No fue posible enviar el código" }),
+  confirm2FAUnlink: (challengeId: string, code: string) =>
+    request<{ enabled: false }>("/auth/2fa/unlink/confirm", {
+      method: "POST",
+      body: json({ challengeId, code }),
+      failMessage: "No fue posible confirmar el código",
+    }),
 
   // Proyectos
   listProjects: () => request<Project[]>("/projects", { failMessage: "API no disponible", retry: true }),

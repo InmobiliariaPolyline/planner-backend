@@ -23,8 +23,33 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  createdProjects Project[]    @relation("ProjectCreator")
+  /// Correo vinculado para la verificación en dos pasos (opcional). Si está
+  /// vinculado, el login pide además un código de 6 dígitos enviado ahí.
+  twoFactorEmail   String?
+  twoFactorEnabled Boolean @default(false)
+
+  createdProjects Project[]       @relation("ProjectCreator")
   teamMemberships TeamMember[]
+  twoFactorCodes  TwoFactorCode[]
+}
+
+/// Código de un solo uso para vincular/desvincular el correo de verificación
+/// en dos pasos, o para completar un inicio de sesión con esa verificación
+/// activada. Se borra al usarse o al caducar (10 min); reenviar antes de 2
+/// min no está permitido (ver src/lib/twoFactor.ts).
+model TwoFactorCode {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "link" (vincular) | "unlink" (quitar) | "login" (segundo paso al entrar)
+  purpose   String
+  email     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose])
 }
 
 model Project {

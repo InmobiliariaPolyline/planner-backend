@@ -30,7 +30,9 @@ export type IconName =
   | "gauge"
   | "settings"
   | "tags"
-  | "book";
+  | "book"
+  | "shield"
+  | "mail";
 
 const PATHS: Record<IconName, ReactNode> = {
   dashboard: (
@@ -144,6 +146,18 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M5 4a2 2 0 0 1 2-2h12v18H7a2 2 0 0 0-2 2z" />
       <path d="M5 20a2 2 0 0 1 2-2h12" />
       <path d="M9 6h6" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
+      <path d="m9.5 12 2 2 3.5-4" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3.5 6 8.5 6.5L20.5 6" />
     </>
   ),
 };

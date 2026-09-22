@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { TwoFactorCodeForm } from "@/components/ui/TwoFactorCodeForm";
+import type { TwoFactorChallenge } from "@/hooks/useAuth";
 
 function BrandMark({ size = "md" }: { size?: "md" | "lg" }) {
   return (
@@ -57,11 +59,19 @@ export function LoginScreen({
   onLogin,
   error,
   loading,
+  twoFactor,
+  onVerifyTwoFactor,
+  onResendTwoFactor,
+  onCancelTwoFactor,
 }: {
   projectCount: number;
   onLogin: (username: string, password: string) => void;
   error: string | null;
   loading: boolean;
+  twoFactor: TwoFactorChallenge | null;
+  onVerifyTwoFactor: (code: string) => void;
+  onResendTwoFactor: () => void;
+  onCancelTwoFactor: () => void;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -100,48 +110,65 @@ export function LoginScreen({
           <span>Acceso al sistema</span>
           <span className="status-dot">Sistema operativo</span>
         </div>
-        <form className="login-form form" onSubmit={submit}>
-          <p className="eyebrow">Bienvenido</p>
-          <h2>Inicia sesión para continuar.</h2>
-          <p className="login-form-lead">
-            Entra con tu usuario y contraseña para gestionar proyectos, equipo y fechas clave.
-          </p>
-
-          {error && <p className="form-error">{error}</p>}
-
-          <div className="form-row">
-            <span>Usuario</span>
-            <input
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              placeholder="admin"
-              disabled={loading}
-              autoFocus
+        {twoFactor ? (
+          <div className="login-form">
+            <TwoFactorCodeForm
+              eyebrow="Verificación en dos pasos"
+              title="Revisa tu correo."
+              description={`Te enviamos un código de 6 dígitos a ${twoFactor.emailHint}.`}
+              cooldownSeconds={twoFactor.cooldownSeconds}
+              loading={loading}
+              error={error}
+              onSubmit={onVerifyTwoFactor}
+              onResend={onResendTwoFactor}
+              onCancel={onCancelTwoFactor}
+              submitLabel="Entrar"
             />
           </div>
-          <div className="form-row">
-            <span>Contraseña</span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              disabled={loading}
-            />
-          </div>
+        ) : (
+          <form className="login-form form" onSubmit={submit}>
+            <p className="eyebrow">Bienvenido</p>
+            <h2>Inicia sesión para continuar.</h2>
+            <p className="login-form-lead">
+              Entra con tu usuario y contraseña para gestionar proyectos, equipo y fechas clave.
+            </p>
 
-          <button
-            type="submit"
-            className="btn btn-primary btn-block"
-            disabled={loading || !username.trim() || !password}
-          >
-            {loading ? "Entrando…" : "Entrar"}
-            {!loading && <Icon name="arrow-right" size={16} />}
-          </button>
-        </form>
+            {error && <p className="form-error">{error}</p>}
+
+            <div className="form-row">
+              <span>Usuario</span>
+              <input
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                placeholder="admin"
+                disabled={loading}
+                autoFocus
+              />
+            </div>
+            <div className="form-row">
+              <span>Contraseña</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="••••••••"
+                disabled={loading}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary btn-block"
+              disabled={loading || !username.trim() || !password}
+            >
+              {loading ? "Entrando…" : "Entrar"}
+              {!loading && <Icon name="arrow-right" size={16} />}
+            </button>
+          </form>
+        )}
       </section>
     </main>
   );

@@ -77,7 +77,19 @@ export function PlannerApp() {
   } = useNotifications();
 
   const [isBooting, setIsBooting] = useState(true);
-  const { status: authStatus, user, token, login, logout, loginError, loginLoading } = useAuth();
+  const {
+    status: authStatus,
+    user,
+    token,
+    login,
+    logout,
+    loginError,
+    loginLoading,
+    twoFactor,
+    verifyTwoFactor,
+    resendTwoFactor,
+    cancelTwoFactor,
+  } = useAuth();
   const authenticated = authStatus === "in";
   const { onlineIds, ready: presenceReady } = usePresence(token);
   const [basicUsers, setBasicUsers] = useState<BasicUser[]>([]);
@@ -483,6 +495,10 @@ export function PlannerApp() {
         onLogin={login}
         error={loginError}
         loading={loginLoading}
+        twoFactor={twoFactor}
+        onVerifyTwoFactor={verifyTwoFactor}
+        onResendTwoFactor={resendTwoFactor}
+        onCancelTwoFactor={cancelTwoFactor}
       />
     );
   }

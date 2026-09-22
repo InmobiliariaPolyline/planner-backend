@@ -3,10 +3,18 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { NextFunction, Request, Response } from 'express';
 
-// Rutas que no requieren sesión: la pantalla de acceso, el health check y los
+// Rutas que no requieren sesión: la pantalla de acceso, el health check, los
 // enlaces públicos de expediente (esos tienen su propio control con el token
-// de ShareLink, ver src/lib/share.ts).
-const PUBLIC_PATHS: RegExp[] = [/^\/$/, /^\/health$/, /^\/auth\/login$/, /^\/shared\//];
+// de ShareLink, ver src/lib/share.ts) y el segundo paso del login con
+// verificación en dos pasos (todavía no hay sesión en ese momento).
+const PUBLIC_PATHS: RegExp[] = [
+  /^\/$/,
+  /^\/health$/,
+  /^\/auth\/login$/,
+  /^\/auth\/2fa\/login-verify$/,
+  /^\/auth\/2fa\/login-resend$/,
+  /^\/shared\//,
+];
 
 const TOKEN_TTL = '12h';
 

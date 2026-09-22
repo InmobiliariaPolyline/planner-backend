@@ -93,6 +93,8 @@ FRONTEND_ORIGIN=https://plannerbackend.vercel.app,http://localhost:3000
 
 JWT_SECRET=<cadena larga y aleatoria, p. ej. `openssl rand -base64 48`>
 
+RESEND_API_KEY=<clave de tu cuenta en resend.com>
+
 Importante:
 - Node 22.12.0 coincide con la versión declarada en Render y cumple el requisito engines del package.json del backend.
 - El valor exacto de este proyecto es https://plannerbackend.vercel.app,http://localhost:3000.
@@ -110,6 +112,10 @@ Importante:
   `npx tsx scripts/seed-users.ts` con el DATABASE_URL de destino para crear las
   cuentas Administrador y Arquitecto (`npm run seed:users` en local). Las
   contraseñas generadas solo se muestran esa vez en la consola.
+- RESEND_API_KEY es para la verificación en dos pasos (parche 016), que hoy
+  está construida pero en pausa (no aparece en la interfaz): el plan
+  gratuito de Resend solo envía correos a la cuenta con la que se creó. Se
+  puede configurar de una vez o dejar para cuando se retome esa función.
 
 Health check para Render:
   GET /
@@ -153,6 +159,12 @@ MIGRACIONES:
     20260917010000_add_project_owner_and_member_user  Project.createdById y
                                    TeamMember.userId (visibilidad por usuario
                                    y participantes vinculados a una cuenta).
+    20260917020000_add_task_auto_progress  Task.autoProgress (progreso
+                                   automatico por fechas).
+    20260922000000_add_project_logo  Project.logoUrl (logotipo opcional).
+    20260922010000_add_two_factor_auth  User.twoFactorEmail/Enabled y tabla
+                                   TwoFactorCode (verificacion en dos pasos,
+                                   construida pero en pausa, ver parche 016).
 - La base original de Neon se creo con `prisma db push`. Para que Prisma marque
   la migracion inicial como ya aplicada sin volver a correr su SQL, ejecutar UNA
   sola vez con la DATABASE_URL de Neon:

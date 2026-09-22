@@ -67,6 +67,12 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   módulo «Configuración» (engranaje) con selector de tema, y logotipo
   opcional por expediente (150×150 a 250×250 px). **Requiere aplicar la
   migración `20260922000000_add_project_logo`.**
+- `016-cambio-de-contrasena-y-2fa-en-pausa.md`: cambio de la propia
+  contraseña desde Configuración → Perfil (sin pasos extra). La verificación
+  en dos pasos por correo (Resend) queda construida pero **en pausa**: el
+  plan gratuito de Resend solo envía a la cuenta con la que se creó, así que
+  no sirve todavía para usuarios reales. **Requiere aplicar la migración
+  `20260922010000_add_two_factor_auth`.**
 
 ## Cambios mayores (no son parches)
 
