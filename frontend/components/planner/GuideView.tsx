@@ -257,11 +257,18 @@ const SECTIONS: Section[] = [
   {
     id: "extras",
     icon: "target",
-    title: "Métricas y enlaces de una tarea",
-    intro: "Dentro de la edición de una tarea puedes registrar su rendimiento y adjuntar enlaces.",
+    title: "Materiales y enlaces de una tarea",
+    intro: "Al crear o editar una tarea puedes elegir los materiales que va a usar y adjuntar enlaces.",
     steps: [
-      { do: "En el Gantt, pulsa el lápiz de una tarea para editarla." },
-      { do: "En «Métricas de rendimiento» añade unidad, ritmo por día y divisor." },
+      {
+        do: "Elige la categoría del material y luego el material exacto: cada uno tiene su propia densidad y métrica de referencia.",
+      },
+      {
+        do: "Indica la cantidad a usar y, debajo, un valor por cada dato que pide su métrica (p. ej. peso y longitud por separado).",
+      },
+      {
+        do: "Pulsa el botón verde «Añadir material» para sumarlo a la lista — elegirlo y llenar los campos no alcanza, hay que pulsarlo por cada uno.",
+      },
       { do: "En «Enlaces de Drive» pega una dirección que empiece por http:// o https://." },
     ],
   },
