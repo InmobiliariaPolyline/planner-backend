@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { api } from "@/lib/api";
 import { friendlyError } from "@/lib/errors";
 import type { Theme } from "@/hooks/useTheme";
@@ -10,6 +10,44 @@ const THEME_OPTIONS: { value: Theme; label: string; description: string }[] = [
   { value: "light", label: "Claro", description: "Fondo blanco, para ambientes con buena luz." },
   { value: "dark", label: "Oscuro", description: "Fondo oscuro con acentos morados, para bajar el brillo." },
 ];
+
+function ThemeSection({ theme, onSetTheme }: { theme: Theme; onSetTheme: (theme: Theme) => void }) {
+  return (
+    <section className="panel">
+      <p className="hero-lead" style={{ marginBottom: "var(--space-4)" }}>
+        Elige cómo se ve la interfaz. El cambio se aplica al instante y se recuerda en este
+        navegador.
+      </p>
+      <div className="theme-options">
+        {THEME_OPTIONS.map((option) => {
+          const active = theme === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={active ? "theme-option is-active" : "theme-option"}
+              onClick={() => onSetTheme(option.value)}
+              aria-pressed={active}
+            >
+              <span className={`theme-swatch theme-swatch-${option.value}`} aria-hidden="true">
+                <Icon name={option.value === "light" ? "sun" : "moon"} size={18} />
+              </span>
+              <span className="theme-option-body">
+                <strong>{option.label}</strong>
+                <span>{option.description}</span>
+              </span>
+              {active && (
+                <span className="theme-option-check" aria-hidden="true">
+                  <Icon name="check" size={14} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 function ProfileSection() {
   const [current, setCurrent] = useState("");
@@ -47,15 +85,6 @@ function ProfileSection() {
 
   return (
     <section className="panel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Cuenta</p>
-          <h2>Perfil</h2>
-        </div>
-        <span className="stat-icon">
-          <Icon name="shield" size={16} />
-        </span>
-      </div>
       <p className="hero-lead" style={{ marginBottom: "var(--space-4)" }}>
         Cambia tu contraseña cuando quieras. No hace falta ningún paso extra por ahora.
       </p>
@@ -108,15 +137,6 @@ function ProfileSection() {
 function SecuritySection() {
   return (
     <section className="panel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Acceso</p>
-          <h2>Verificación en dos pasos</h2>
-        </div>
-        <span className="stat-icon">
-          <Icon name="shield" size={16} />
-        </span>
-      </div>
       <p className="hero-lead">
         Todavía no está disponible. Por ahora, entra al sistema normalmente con tu usuario y
         contraseña.
@@ -125,64 +145,101 @@ function SecuritySection() {
   );
 }
 
+type ModuleId = "perfil" | "tema" | "seguridad";
+
+type ModuleDef = {
+  id: ModuleId;
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: IconName;
+  /** Controla si el módulo aparece: solo se muestran los que de verdad
+   * aplican (p. ej., algo podría depender del rol más adelante). */
+  available: boolean;
+};
+
 export function ConfigView({ theme, onSetTheme }: { theme: Theme; onSetTheme: (theme: Theme) => void }) {
+  const [activeId, setActiveId] = useState<ModuleId | null>(null);
+
+  const modules: ModuleDef[] = [
+    {
+      id: "perfil",
+      eyebrow: "Cuenta",
+      title: "Perfil",
+      description: "Cambia tu contraseña cuando quieras.",
+      icon: "shield",
+      available: true,
+    },
+    {
+      id: "tema",
+      eyebrow: "Apariencia",
+      title: "Tema",
+      description: "Elige el tema claro u oscuro de la interfaz.",
+      icon: "sun",
+      available: true,
+    },
+    {
+      id: "seguridad",
+      eyebrow: "Acceso",
+      title: "Verificación en dos pasos",
+      description: "Todavía no está disponible.",
+      icon: "shield",
+      available: true,
+    },
+  ];
+  const visibleModules = modules.filter((mod) => mod.available);
+  const activeModule = visibleModules.find((mod) => mod.id === activeId) ?? null;
+
+  if (activeModule) {
+    return (
+      <div className="view settings">
+        <button type="button" className="link-btn back" onClick={() => setActiveId(null)}>
+          <Icon name="arrow-left" size={14} />
+          Configuración
+        </button>
+        <header className="hero">
+          <div>
+            <p className="eyebrow">{activeModule.eyebrow}</p>
+            <h1>{activeModule.title}</h1>
+          </div>
+        </header>
+
+        {activeModule.id === "perfil" && <ProfileSection />}
+        {activeModule.id === "tema" && <ThemeSection theme={theme} onSetTheme={onSetTheme} />}
+        {activeModule.id === "seguridad" && <SecuritySection />}
+      </div>
+    );
+  }
+
   return (
     <div className="view settings">
       <header className="hero">
         <div>
           <p className="eyebrow">Configuración</p>
           <h1>Configuración del sistema</h1>
-          <p className="hero-lead">Personaliza cómo se ve Project Planner y protege tu cuenta.</p>
+          <p className="hero-lead">Elige un área para verla y ajustarla.</p>
         </div>
       </header>
 
-      <div style={{ display: "grid", gap: "var(--space-6)" }}>
-        <section className="panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Apariencia</p>
-              <h2>Tema</h2>
-            </div>
+      <div className="config-modules">
+        {visibleModules.map((mod) => (
+          <button
+            key={mod.id}
+            type="button"
+            className="config-module-card"
+            onClick={() => setActiveId(mod.id)}
+          >
             <span className="stat-icon">
-              <Icon name="sun" size={16} />
+              <Icon name={mod.icon} size={16} />
             </span>
-          </div>
-          <p className="hero-lead" style={{ marginBottom: "var(--space-4)" }}>
-            Elige cómo se ve la interfaz. El cambio se aplica al instante y se recuerda en este
-            navegador.
-          </p>
-
-          <div className="theme-options">
-            {THEME_OPTIONS.map((option) => {
-              const active = theme === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={active ? "theme-option is-active" : "theme-option"}
-                  onClick={() => onSetTheme(option.value)}
-                  aria-pressed={active}
-                >
-                  <span className={`theme-swatch theme-swatch-${option.value}`} aria-hidden="true">
-                    <Icon name={option.value === "light" ? "sun" : "moon"} size={18} />
-                  </span>
-                  <span className="theme-option-body">
-                    <strong>{option.label}</strong>
-                    <span>{option.description}</span>
-                  </span>
-                  {active && (
-                    <span className="theme-option-check" aria-hidden="true">
-                      <Icon name="check" size={14} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <ProfileSection />
-        <SecuritySection />
+            <span className="config-module-body">
+              <p className="eyebrow">{mod.eyebrow}</p>
+              <h2>{mod.title}</h2>
+              <p>{mod.description}</p>
+            </span>
+            <Icon name="arrow-right" size={16} className="config-module-arrow" />
+          </button>
+        ))}
       </div>
     </div>
   );

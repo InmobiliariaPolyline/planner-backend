@@ -113,6 +113,11 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   agregar un material al crearla; cantidad de material ya no acepta 0 por
   API directa; y «1 materiales» pasa a «1 material». No requiere
   migración.
+- `024-configuracion-como-submodulos.md`: «Configuración» ahora es una
+  cuadrícula de tarjetas (Perfil, Tema, Verificación en dos pasos) — cada
+  una se abre sola al hacer clic, en vez de ver todo apilado en una sola
+  página; solo se muestran las áreas realmente disponibles. No requiere
+  migración.
 
 ## Cambios mayores (no son parches)
 
