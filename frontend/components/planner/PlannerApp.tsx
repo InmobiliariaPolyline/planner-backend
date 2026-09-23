@@ -394,12 +394,27 @@ export function PlannerApp() {
       payload.ownerName = user?.name ?? "Sin responsable";
       const created = await api.createTask(selectedProject.id, payload);
       const taskId = String((created as RawTask).id);
+      // La tarea ya quedó creada: si un material falla no se relanza el
+      // error (eso dejaría el modal abierto y, si el usuario reintenta
+      // "Crear tarea" pensando que no se guardó nada, crearía una tarea
+      // duplicada). En vez de eso se avisa cuáles no se pudieron agregar.
+      const failedMaterials: string[] = [];
       for (const material of materials) {
-        await api.addTaskMaterial(taskId, {
-          materialId: material.materialId,
-          quantity: material.quantity,
-          values: material.values,
-        });
+        try {
+          await api.addTaskMaterial(taskId, {
+            materialId: material.materialId,
+            quantity: material.quantity,
+            values: material.values,
+          });
+        } catch {
+          failedMaterials.push(material.material.name);
+        }
+      }
+      if (failedMaterials.length) {
+        toastError(
+          "Tarea creada, pero algunos materiales no se agregaron",
+          `${failedMaterials.join(", ")} — ábrela y vuelve a intentarlo.`,
+        );
       }
     }
     await refreshProject(selectedProject.id);

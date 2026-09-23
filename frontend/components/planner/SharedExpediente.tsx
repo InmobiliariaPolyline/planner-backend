@@ -20,7 +20,7 @@ import type {
 } from "@/lib/types";
 import { GanttChart } from "./GanttChart";
 import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
-import { TaskFormModal } from "./TaskFormModal";
+import { TaskFormModal, type PendingMaterial, type TaskExtrasApi } from "./TaskFormModal";
 
 type Modal =
   | null
@@ -50,8 +50,21 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
   const milestones = project.milestones ?? [];
 
   useEffect(() => {
-    if (canEdit) api.listTechnicalAreas().then(setAreas).catch(() => undefined);
-  }, [canEdit]);
+    if (canEdit) api.listSharedTechnicalAreas(token).then(setAreas).catch(() => undefined);
+  }, [canEdit, token]);
+
+  // Materiales y enlaces de una tarea, ligados al token del enlace: las
+  // rutas autenticadas normales (Bearer) no sirven aquí, no hay sesión.
+  const extrasApi = useMemo<TaskExtrasApi>(
+    () => ({
+      listMaterials: () => api.listSharedMaterials(token),
+      addTaskMaterial: (taskId, data) => api.addSharedTaskMaterial(token, taskId, data),
+      deleteTaskMaterial: (id) => api.deleteSharedTaskMaterial(token, id),
+      createDriveLink: (taskId, url) => api.createSharedDriveLink(token, taskId, url),
+      deleteDriveLink: (id) => api.deleteSharedDriveLink(token, id),
+    }),
+    [token],
+  );
 
   const reload = useCallback(async () => {
     const result = await fetchShared(token);
@@ -71,7 +84,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
     setNotice("Cambios guardados.");
   }
 
-  async function saveTask(values: TaskFormValues, existing?: TaskDetail) {
+  async function saveTask(values: TaskFormValues, materials: PendingMaterial[] = [], existing?: TaskDetail) {
     const payloadData: Record<string, unknown> = {
       name: values.name.trim(),
       startDate: values.startDate,
@@ -85,7 +98,30 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
       await api.patchSharedTask(token, existing.id, payloadData);
     } else {
       payloadData.ownerName = SHARED_CREATOR_NAME;
-      await api.createSharedTask(token, { ...payloadData, progress: 0 });
+      const created = await api.createSharedTask(token, { ...payloadData, progress: 0 });
+      const taskId = String((created as RawTask).id);
+      // La tarea ya quedó creada: si un material falla no se relanza (eso
+      // volvería a mostrar el formulario y, si el usuario reintenta "Crear
+      // tarea" pensando que no se guardó nada, crearía una tarea duplicada).
+      // En vez de eso se avisa cuáles no se pudieron agregar.
+      const failed: string[] = [];
+      for (const material of materials) {
+        try {
+          await api.addSharedTaskMaterial(token, taskId, {
+            materialId: material.materialId,
+            quantity: material.quantity,
+            values: material.values,
+          });
+        } catch {
+          failed.push(material.material.name);
+        }
+      }
+      if (failed.length) {
+        setNotice(`Tarea creada, pero no se pudo agregar: ${failed.join(", ")}. Ábrela para volver a intentarlo.`);
+        await reload();
+        setModal(null);
+        return;
+      }
     }
     await reload();
     setModal(null);
@@ -122,7 +158,7 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
   }
 
   async function createArea(name: string) {
-    const area = await api.createTechnicalArea(name);
+    const area = await api.createSharedTechnicalArea(token, name);
     setAreas((current) => [...current, area]);
     return area;
   }
@@ -296,8 +332,9 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
           creatorName={SHARED_CREATOR_NAME}
           technicalAreas={areas}
           onCreateArea={createArea}
-          onSubmit={(values) => saveTask(values)}
+          onSubmit={(values, materials) => saveTask(values, materials)}
           onClose={() => setModal(null)}
+          extrasApi={extrasApi}
         />
       )}
       {modal?.kind === "taskEdit" && (
@@ -306,9 +343,10 @@ export function SharedExpediente({ token, payload }: { token: string; payload: S
           initialTask={modal.task}
           technicalAreas={areas}
           onCreateArea={createArea}
-          onSubmit={(values) => saveTask(values, modal.task)}
+          onSubmit={(values) => saveTask(values, [], modal.task)}
           onExtrasChanged={() => void reload()}
           onClose={() => setModal(null)}
+          extrasApi={extrasApi}
         />
       )}
       {modal?.kind === "taskDelete" && (

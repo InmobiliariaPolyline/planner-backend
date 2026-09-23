@@ -9,7 +9,29 @@ import { fieldError, ValidatedField, type Rule } from "@/components/ui/Validated
 import { api } from "@/lib/api";
 import { isoDay } from "@/lib/format";
 import { formatMaterialValues, metricComponents } from "@/lib/materials";
-import type { Material, TaskDetail, TaskFormValues, TechnicalArea } from "@/lib/types";
+import type { DriveLink, Material, TaskDetail, TaskFormValues, TechnicalArea } from "@/lib/types";
+
+/** Funciones para materiales/enlaces de una tarea. Por defecto usan la API
+ * autenticada normal; el expediente compartido (enlace público) pasa sus
+ * propias versiones ligadas al token, ya que esas rutas son otras. */
+export type TaskExtrasApi = {
+  listMaterials: () => Promise<Material[]>;
+  addTaskMaterial: (
+    taskId: string,
+    data: { materialId: string; quantity: number; values: Record<string, number> },
+  ) => Promise<{ id: string; quantity: number; values: Record<string, number>; material: Material }>;
+  deleteTaskMaterial: (id: string) => Promise<void>;
+  createDriveLink: (taskId: string, url: string) => Promise<DriveLink>;
+  deleteDriveLink: (id: string) => Promise<void>;
+};
+
+const defaultExtrasApi: TaskExtrasApi = {
+  listMaterials: api.listMaterials,
+  addTaskMaterial: api.addTaskMaterial,
+  deleteTaskMaterial: api.deleteTaskMaterial,
+  createDriveLink: api.createDriveLink,
+  deleteDriveLink: api.deleteDriveLink,
+};
 
 const notEmpty = (v: string) => v.trim().length > 0;
 const maxLen = (v: string) => v.trim().length <= 300;
@@ -228,7 +250,15 @@ function MaterialsList({ rows, onRemove }: { rows: MaterialRow[]; onRemove: (id:
   );
 }
 
-function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => void }) {
+function TaskExtras({
+  task,
+  extrasApi,
+  onChanged,
+}: {
+  task: TaskDetail;
+  extrasApi: TaskExtrasApi;
+  onChanged: () => void;
+}) {
   const [catalog, setCatalog] = useState<Material[]>([]);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkErrors, setLinkErrors] = useState(false);
@@ -245,7 +275,9 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
   const [linkRows, setLinkRows] = useState(task.driveLinks ?? []);
 
   useEffect(() => {
-    api.listMaterials().then(setCatalog).catch((loadError) => setError(friendlyError(loadError)));
+    extrasApi.listMaterials().then(setCatalog).catch((loadError) => setError(friendlyError(loadError)));
+    // Solo al montar: extrasApi no cambia en la vida del modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const linkInvalid = fieldError(linkUrl, urlRules) !== null;
@@ -253,7 +285,7 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
   function addMaterial(materialId: string, quantity: number, values: Record<string, number>) {
     setError("");
     setBusy(true);
-    api
+    extrasApi
       .addTaskMaterial(task.id, { materialId, quantity, values })
       .then((created) => {
         setMaterialRows((current) => [
@@ -270,7 +302,7 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
     setError("");
     const previous = materialRows;
     setMaterialRows((current) => current.filter((row) => row.id !== id));
-    api
+    extrasApi
       .deleteTaskMaterial(id)
       .then(onChanged)
       .catch((actionError) => {
@@ -286,7 +318,7 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
     }
     setError("");
     setBusy(true);
-    api
+    extrasApi
       .createDriveLink(task.id, linkUrl.trim())
       .then((created) => {
         setLinkRows((current) => [...current, created]);
@@ -302,7 +334,7 @@ function TaskExtras({ task, onChanged }: { task: TaskDetail; onChanged: () => vo
     setError("");
     const previous = linkRows;
     setLinkRows((current) => current.filter((row) => row.id !== id));
-    api
+    extrasApi
       .deleteDriveLink(id)
       .then(onChanged)
       .catch((actionError) => {
@@ -366,6 +398,7 @@ export function TaskFormModal({
   onSubmit,
   onExtrasChanged,
   onClose,
+  extrasApi = defaultExtrasApi,
 }: {
   mode: "create" | "edit";
   initialTask?: TaskDetail;
@@ -377,6 +410,9 @@ export function TaskFormModal({
   onSubmit: (values: TaskFormValues, materials: PendingMaterial[]) => Promise<void>;
   onExtrasChanged?: () => void;
   onClose: () => void;
+  /** Con qué API leer/guardar materiales y enlaces: por defecto la
+   * autenticada; el expediente compartido pasa la ligada a su token. */
+  extrasApi?: TaskExtrasApi;
 }) {
   const [values, setValues] = useState<TaskFormValues>(
     initialTask ? taskToForm(initialTask) : EMPTY,
@@ -390,7 +426,9 @@ export function TaskFormModal({
 
   useEffect(() => {
     if (isEdit) return;
-    api.listMaterials().then(setCatalog).catch(() => undefined);
+    extrasApi.listMaterials().then(setCatalog).catch(() => undefined);
+    // Solo al montar en modo creación: extrasApi no cambia en la vida del modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit]);
 
   const set = <K extends keyof TaskFormValues>(key: K, value: TaskFormValues[K]) =>
@@ -527,7 +565,7 @@ export function TaskFormModal({
       )}
 
       {isEdit && initialTask && (
-        <TaskExtras task={initialTask} onChanged={() => onExtrasChanged?.()} />
+        <TaskExtras task={initialTask} extrasApi={extrasApi} onChanged={() => onExtrasChanged?.()} />
       )}
     </Modal>
   );

@@ -81,7 +81,13 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
     // 502/503/504 => el servidor todavía está arrancando; reintentar
     if ([502, 503, 504].includes(response.status) && attempt < attempts - 1) continue;
 
-    if (response.status === 401) {
+    // Un 401 solo significa "tu sesión caducó" cuando la petición llevaba un
+    // token de sesión que el servidor rechazó. Sin token (login, un enlace
+    // público) no había ninguna sesión que expirar — es un 401 "normal" de
+    // credenciales inválidas, y debe mostrarse tal cual manda el servidor
+    // (si no, por ejemplo, un usuario/contraseña incorrectos en el login se
+    // veía como "tu sesión caducó", que no tiene sentido ahí).
+    if (response.status === 401 && authToken) {
       unauthorizedListener?.();
       throw new Error("Tu sesión caducó. Vuelve a iniciar sesión.");
     }
@@ -274,6 +280,20 @@ export const api = {
     request<RawTask>(`/shared/${token}/tasks/${taskId}`, { method: "PATCH", body: json({ progress }), failMessage: "No fue posible guardar el progreso" }),
   deleteSharedTask: (token: string, taskId: string) =>
     request<void>(`/shared/${token}/tasks/${taskId}`, { method: "DELETE", failMessage: "No fue posible eliminar la tarea" }),
+  listSharedTechnicalAreas: (token: string) =>
+    request<{ id: string; name: string }[]>(`/shared/${token}/technical-areas`, { failMessage: "No fue posible cargar las áreas técnicas" }),
+  createSharedTechnicalArea: (token: string, name: string) =>
+    request<{ id: string; name: string }>(`/shared/${token}/technical-areas`, { method: "POST", body: json({ name }), failMessage: "No fue posible crear el área técnica" }),
+  listSharedMaterials: (token: string, category?: string) =>
+    request<Material[]>(`/shared/${token}/materials${category ? `?category=${encodeURIComponent(category)}` : ""}`, { failMessage: "No fue posible cargar los materiales" }),
+  addSharedTaskMaterial: (token: string, taskId: string, data: { materialId: string; quantity: number; values: Record<string, number> }) =>
+    request<TaskMaterial>(`/shared/${token}/tasks/${taskId}/materials`, { method: "POST", body: json(data), failMessage: "No fue posible agregar el material" }),
+  deleteSharedTaskMaterial: (token: string, id: string) =>
+    request<void>(`/shared/${token}/task-materials/${id}`, { method: "DELETE", failMessage: "No fue posible quitar el material" }),
+  createSharedDriveLink: (token: string, taskId: string, url: string) =>
+    request<DriveLink>(`/shared/${token}/tasks/${taskId}/drive-links`, { method: "POST", body: json({ url }), failMessage: "No fue posible añadir el enlace" }),
+  deleteSharedDriveLink: (token: string, id: string) =>
+    request<void>(`/shared/${token}/drive-links/${id}`, { method: "DELETE", failMessage: "No fue posible eliminar el enlace" }),
 };
 
 /**

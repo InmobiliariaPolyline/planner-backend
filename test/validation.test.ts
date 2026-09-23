@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { cleanText, requiredDate, requiredNumber } from '../src/lib/validation';
 import { assertDateOrder, monthsBetween } from '../src/lib/projectMath';
 import { newShareToken, parseRole } from '../src/lib/share';
-import { metricComponents, parseMaterialValues } from '../src/lib/materials';
+import { metricComponents, parseMaterialValues, parseQuantity } from '../src/lib/materials';
 
 test('cleanText: obligatorio', () => {
   assert.throws(() => cleanText('', 'x'), /obligatorio/);
@@ -71,4 +71,13 @@ test('parseMaterialValues: exige un número > 0 por cada valor de la métrica', 
     'Peso (kg / ton)': 120,
     'Longitud (m)': 5,
   });
+});
+
+test('parseQuantity: exige un número mayor que 0', () => {
+  assert.throws(() => parseQuantity(0), /mayor que 0/);
+  assert.throws(() => parseQuantity(-5), /mayor que 0/);
+  assert.throws(() => parseQuantity(undefined), /mayor que 0/);
+  assert.throws(() => parseQuantity('abc'), /mayor que 0/);
+  assert.equal(parseQuantity(12.5), 12.5);
+  assert.equal(parseQuantity('8'), 8);
 });

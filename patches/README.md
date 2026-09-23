@@ -104,6 +104,15 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   ahora verde (antes del mismo tono que el resto) y lleva un texto de
   ayuda debajo, para no confundirlo con «Guardar cambios» / «Crear tarea».
   No requiere migración.
+- `023-correcciones-del-testeo-completo.md`: correcciones de un testeo
+  completo del sistema — un 401 ya no se confunde con «sesión caducada»
+  (afectaba el mensaje de login y cerraba la sesión al errar la
+  contraseña actual al cambiarla); los enlaces públicos «Editor» ya
+  pueden crear/leer áreas técnicas, materiales y enlaces de Drive (antes
+  esas rutas exigían sesión); ya no se puede duplicar una tarea si falla
+  agregar un material al crearla; cantidad de material ya no acepta 0 por
+  API directa; y «1 materiales» pasa a «1 material». No requiere
+  migración.
 
 ## Cambios mayores (no son parches)
 

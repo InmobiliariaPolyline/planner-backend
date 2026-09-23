@@ -227,6 +227,13 @@ Cada operación de escritura además **deja un registro en el historial**
 | `POST` | `/shared/:token/tasks` | editor | crea una tarea |
 | `PATCH` | `/shared/:token/tasks/:taskId` | editor | edita una tarea |
 | `DELETE` | `/shared/:token/tasks/:taskId` | editor | borra una tarea |
+| `GET` | `/shared/:token/technical-areas` | viewer/editor | catálogo de áreas técnicas |
+| `POST` | `/shared/:token/technical-areas` | editor | crea un área técnica |
+| `GET` | `/shared/:token/materials` | viewer/editor | catálogo de materiales de referencia |
+| `POST` | `/shared/:token/tasks/:taskId/materials` | editor | agrega un material a una tarea |
+| `DELETE` | `/shared/:token/task-materials/:id` | editor | quita un material de una tarea |
+| `POST` | `/shared/:token/tasks/:taskId/drive-links` | editor | adjunta un enlace de Drive a una tarea |
+| `DELETE` | `/shared/:token/drive-links/:id` | editor | quita un enlace de Drive de una tarea |
 
 ### Middlewares aplicados a toda la API
 

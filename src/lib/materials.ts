@@ -41,6 +41,16 @@ export function parseMaterialValues(input: unknown, metricLabel: string): Record
   return values;
 }
 
+/** Cantidad del material a usar en la tarea: debe ser un número mayor que 0
+ * (0 o negativo no tiene sentido como cantidad a usar). */
+export function parseQuantity(value: unknown): number {
+  const number = Number(value);
+  if (value === undefined || value === null || value === '' || !Number.isFinite(number) || number <= 0) {
+    throw new Error('quantity debe ser un número mayor que 0');
+  }
+  return number;
+}
+
 export function formatMaterialValues(values: Record<string, number>): string {
   return Object.entries(values)
     .map(([label, value]) => `${label}: ${value}`)

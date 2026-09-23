@@ -13,7 +13,7 @@ import { assertProgressEditAccess, assertProjectAccess, assertTaskAccess, Projec
 import { attachPresence, isOnline } from './lib/presence';
 import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
 import { maskEmail } from './lib/email';
-import { formatMaterialValues, parseMaterialValues } from './lib/materials';
+import { formatMaterialValues, parseMaterialValues, parseQuantity } from './lib/materials';
 import { CooldownError, COOLDOWN_SECONDS, issueTwoFactorCode, verifyTwoFactorCode } from './lib/twoFactor';
 
 const taskInclude = {
@@ -172,7 +172,10 @@ app.patch('/auth/password', async (req: Request, res: Response) => {
     const record = await prisma.user.findUnique({ where: { id: req.user!.id } });
     if (!record) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
     const valid = await verifyPassword(currentPassword, record.passwordHash);
-    if (!valid) { res.status(401).json({ error: 'Tu contraseña actual no es correcta.' }); return; }
+    // 400, no 401: la sesión sigue siendo válida (llegó con su token), solo
+    // la contraseña escrita no coincide. Un 401 aquí hacía que el frontend lo
+    // confundiera con una sesión caducada y cerrara la sesión sin motivo.
+    if (!valid) { res.status(400).json({ error: 'Tu contraseña actual no es correcta.' }); return; }
     const passwordHash = await hashPassword(newPassword);
     await prisma.user.update({ where: { id: record.id }, data: { passwordHash } });
     res.json({ ok: true });
@@ -1019,7 +1022,7 @@ app.post('/tasks/:taskId/materials', async (req, res) => {
     await assertTaskAccess(req.user!, taskId);
     const material = await prisma.material.findUnique({ where: { id: cleanText(materialId, 'materialId')! } });
     if (!material) { res.status(404).json({ error: 'Material no encontrado' }); return; }
-    const parsedQuantity = requiredNumber(quantity, 'quantity');
+    const parsedQuantity = parseQuantity(quantity);
     const parsedValues = parseMaterialValues(values, material.metricLabel);
     const taskMaterial = await prisma.taskMaterial.create({
       data: { taskId, materialId: material.id, quantity: parsedQuantity, values: parsedValues },
@@ -1282,6 +1285,139 @@ app.delete('/shared/:token/tasks/:taskId', async (req: Request, res: Response) =
       entity: 'tarea',
       target: task.name,
       summary: `Eliminó la tarea «${task.name}» del cronograma`,
+      tone: 'negative',
+    });
+    res.status(204).send();
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Áreas técnicas desde un enlace compartido: se listan con cualquier rol
+// (para elegir una al crear/editar una tarea) y se crean solo con editor.
+app.get('/shared/:token/technical-areas', async (req: Request, res: Response) => {
+  try {
+    await resolveShareLink(String(req.params.token));
+    res.json(await prisma.technicalArea.findMany({ orderBy: { name: 'asc' } }));
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+app.post('/shared/:token/technical-areas', async (req: Request, res: Response) => {
+  try {
+    await requireEditorLink(String(req.params.token));
+    const area = await prisma.technicalArea.create({ data: { name: cleanText(req.body.name, 'name')! } });
+    res.status(201).json(area);
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Catálogo de materiales, de solo lectura, visible desde un enlace compartido
+// (con cualquier rol: hace falta para ver los valores al leer una tarea).
+app.get('/shared/:token/materials', async (req: Request, res: Response) => {
+  try {
+    await resolveShareLink(String(req.params.token));
+    const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+    const materials = await prisma.material.findMany({
+      where: category ? { category } : undefined,
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+    res.json(materials);
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+
+// Materiales y enlaces de Drive de una tarea del expediente compartido
+// (rol editor): mismas reglas que sus equivalentes autenticados.
+app.post('/shared/:token/tasks/:taskId/materials', async (req: Request, res: Response) => {
+  try {
+    const { link, task } = await taskOfShareLink(String(req.params.token), String(req.params.taskId));
+    const { materialId, quantity, values } = req.body;
+    const material = await prisma.material.findUnique({ where: { id: cleanText(materialId, 'materialId')! } });
+    if (!material) { res.status(404).json({ error: 'Material no encontrado' }); return; }
+    const parsedQuantity = parseQuantity(quantity);
+    const parsedValues = parseMaterialValues(values, material.metricLabel);
+    const taskMaterial = await prisma.taskMaterial.create({
+      data: { taskId: String(req.params.taskId), materialId: material.id, quantity: parsedQuantity, values: parsedValues },
+      include: { material: true },
+    });
+    await logEvent(link.projectId, {
+      actor: linkActor(link),
+      action: 'material.add',
+      entity: 'material',
+      target: task.name,
+      summary: `Agregó ${parsedQuantity} de «${material.name}» a «${task.name}» (${formatMaterialValues(parsedValues)})`,
+      tone: 'neutral',
+    });
+    res.status(201).json(taskMaterial);
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+app.delete('/shared/:token/task-materials/:id', async (req: Request, res: Response) => {
+  try {
+    const link = await requireEditorLink(String(req.params.token));
+    const taskMaterial = await prisma.taskMaterial.findUnique({
+      where: { id: String(req.params.id) },
+      include: { task: { select: { projectId: true, name: true } }, material: true },
+    });
+    if (!taskMaterial || taskMaterial.task.projectId !== link.projectId) {
+      res.status(404).json({ error: 'Material no encontrado en la tarea' });
+      return;
+    }
+    await prisma.taskMaterial.delete({ where: { id: String(req.params.id) } });
+    await logEvent(link.projectId, {
+      actor: linkActor(link),
+      action: 'material.remove',
+      entity: 'material',
+      target: taskMaterial.task.name,
+      summary: `Quitó «${taskMaterial.material.name}» de «${taskMaterial.task.name}»`,
+      tone: 'negative',
+    });
+    res.status(204).send();
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+app.post('/shared/:token/tasks/:taskId/drive-links', async (req: Request, res: Response) => {
+  try {
+    const { link, task } = await taskOfShareLink(String(req.params.token), String(req.params.taskId));
+    const url = cleanText(req.body.url, 'url')!;
+    if (!/^https?:\/\//.test(url)) throw new Error('url debe ser una dirección HTTP válida');
+    const driveLink = await prisma.driveLink.create({ data: { url, taskId: String(req.params.taskId) } });
+    await logEvent(link.projectId, {
+      actor: linkActor(link),
+      action: 'link.add',
+      entity: 'enlace',
+      target: task.name,
+      summary: `Adjuntó un enlace de Drive a «${task.name}»`,
+      tone: 'neutral',
+    });
+    res.status(201).json(driveLink);
+  } catch (error) {
+    handleShareError(error, res);
+  }
+});
+app.delete('/shared/:token/drive-links/:id', async (req: Request, res: Response) => {
+  try {
+    const link = await requireEditorLink(String(req.params.token));
+    const driveLink = await prisma.driveLink.findUnique({
+      where: { id: String(req.params.id) },
+      include: { task: { select: { projectId: true, name: true } } },
+    });
+    if (!driveLink || driveLink.task.projectId !== link.projectId) {
+      res.status(404).json({ error: 'Enlace no encontrado' });
+      return;
+    }
+    await prisma.driveLink.delete({ where: { id: String(req.params.id) } });
+    await logEvent(link.projectId, {
+      actor: linkActor(link),
+      action: 'link.remove',
+      entity: 'enlace',
+      target: driveLink.task.name,
+      summary: `Quitó un enlace de Drive de «${driveLink.task.name}»`,
       tone: 'negative',
     });
     res.status(204).send();
