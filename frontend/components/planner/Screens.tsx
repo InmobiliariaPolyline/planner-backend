@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { SYSTEM_VERSION } from "@/lib/version";
 import { TwoFactorCodeForm } from "@/components/ui/TwoFactorCodeForm";
 import type { TwoFactorChallenge } from "@/hooks/useAuth";
 
@@ -182,7 +183,7 @@ export function LoginScreen({
       <section className="login-panel">
         <div className="login-panel-head">
           <span>Acceso al sistema</span>
-          <span className="status-dot">Sistema operativo</span>
+          <span className="status-dot">Sistema operativo · {SYSTEM_VERSION}</span>
         </div>
         {twoFactor ? (
           <div className="login-form">

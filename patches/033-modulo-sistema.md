@@ -36,3 +36,10 @@ Verificado en el navegador: acento, esquinas, efectos planos, tamaño de texto y
 reducción de movimiento se aplican y se guardan; Seguridad y Estado del
 sistema (API en línea) funcionan; «Restablecer todo» vuelve a los valores
 predeterminados.
+
+## Versión del sistema
+
+`frontend/lib/version.ts` define la versión que se muestra en la interfaz
+(`V1.0.0`, parche 033, octubre 2026): al pie de la barra lateral, en la
+cabecera del login y en Sistema → Estado del sistema. Sube el número ahí
+cuando salga una versión nueva.

@@ -5,6 +5,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { API_URL, api, type SessionUser } from "@/lib/api";
 import { friendlyError } from "@/lib/errors";
 import type { Theme } from "@/hooks/useTheme";
+import { SYSTEM_PATCH, SYSTEM_RELEASE, SYSTEM_VERSION } from "@/lib/version";
 import {
   ACCENT_PRESETS,
   DEFAULT_PREFERENCES,
@@ -454,7 +455,16 @@ function StatusSection() {
 
   return (
     <>
-      <SectionHead title="Estado del sistema" lead="Comprueba la conexión con el servidor y los datos guardados en este navegador." />
+      <SectionHead title="Estado del sistema" lead="Versión, conexión con el servidor y datos guardados en este navegador." />
+      <section className="panel version-card">
+        <span className="version-badge">{SYSTEM_VERSION}</span>
+        <div>
+          <h3>Project Planner</h3>
+          <p className="form-hint">
+            Versión {SYSTEM_VERSION} · Parche {SYSTEM_PATCH} · {SYSTEM_RELEASE}
+          </p>
+        </div>
+      </section>
       <section className="panel pref-row">
         <span className="pref-row-text">
           <strong>Servidor (API)</strong>

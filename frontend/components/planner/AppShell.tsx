@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { SYSTEM_VERSION } from "@/lib/version";
 import { Icon } from "@/components/ui/Icon";
 import { relativeTime } from "@/lib/format";
 import type { ActiveView, Notification, Project } from "@/lib/types";
@@ -181,6 +182,7 @@ export function AppShell({
             );
           })}
         </nav>
+        <p className="sidebar-version">{SYSTEM_VERSION}</p>
       </aside>
 
       <div className="main">
