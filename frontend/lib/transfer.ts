@@ -297,10 +297,20 @@ export type ProjectImport = {
     progress: number;
     isPhase: boolean;
     dependency: string;
+    materials: { category: string; name: string; quantity: number; values: Record<string, number> }[];
   }[];
   milestones: { description: string; date: string }[];
   teamMembers: { name: string; teamStatus: string }[];
 };
+
+/** Inverso de formatMaterialValues: "Peso (kg): 120, Longitud (m): 5" -> { ... }. */
+function parseMetricValues(text: string): Record<string, number> {
+  const values: Record<string, number> = {};
+  for (const [, label, number] of text.matchAll(/([^:,]+?):\s*(-?\d+(?:[.,]\d+)?)\s*(?:,|$)/g)) {
+    values[label.trim()] = Number(number.replace(",", "."));
+  }
+  return values;
+}
 
 export async function parseProjectFile(file: File): Promise<ProjectImport> {
   const exp = (await sheetObjects(file, "Expediente", true))[0] ?? {};
@@ -325,8 +335,23 @@ export async function parseProjectFile(file: File): Promise<ProjectImport> {
       progress: Number(pick(r, "avance %", "avance", "progreso")) || 0,
       isPhase: /^s[ií]|^true|^1$/i.test(pick(r, "fase", "es fase")),
       dependency: pick(r, "depende de", "dependencia"),
+      materials: [] as ProjectImport["tasks"][number]["materials"],
     }))
     .filter((t) => t.name && t.technicalArea && t.startDate && t.endDate && t.ownerName);
+
+  // Hoja opcional «Materiales»: cada fila se asigna a la primera tarea con ese
+  // nombre (los respaldos anteriores no la traen y se importan igual).
+  for (const r of await sheetObjects(file, "Materiales")) {
+    const task = tasks.find((t) => norm(t.name) === norm(pick(r, "tarea")));
+    const quantity = Number(pick(r, "cantidad").replace(",", "."));
+    if (!task || !pick(r, "categoria") || !pick(r, "material") || !Number.isFinite(quantity)) continue;
+    task.materials.push({
+      category: pick(r, "categoria"),
+      name: pick(r, "material"),
+      quantity,
+      values: parseMetricValues(pick(r, "valores de la metrica", "valores")),
+    });
+  }
 
   const milestones = (await sheetObjects(file, "Hitos"))
     .map((r) => ({ description: pick(r, "descripcion"), date: toDate(pick(r, "fecha")) }))

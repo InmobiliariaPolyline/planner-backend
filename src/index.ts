@@ -568,6 +568,8 @@ app.post('/projects/import', async (req: Request, res: Response) => {
     let tasks = 0;
     let members = 0;
     let milestones = 0;
+    let materials = 0;
+    let materialsSkipped = 0;
 
     for (const t of Array.isArray(body.tasks) ? body.tasks : []) {
       const areaName = cleanText(t.technicalArea ?? t.area, 'technicalArea', false);
@@ -575,7 +577,7 @@ app.post('/projects/import', async (req: Request, res: Response) => {
       const ts = requiredDate(t.startDate, 'startDate');
       const te = requiredDate(t.endDate, 'endDate');
       assertDateOrder(ts, te);
-      await prisma.task.create({
+      const createdTask = await prisma.task.create({
         data: {
           name: cleanText(t.name, 'name')!,
           projectId: project.id,
@@ -592,6 +594,27 @@ app.post('/projects/import', async (req: Request, res: Response) => {
         },
       });
       tasks++;
+      // Materiales de la tarea: se buscan en el catálogo por categoría y nombre;
+      // los que no existen o traen valores inválidos se omiten sin frenar la importación.
+      for (const m of Array.isArray(t.materials) ? t.materials : []) {
+        try {
+          const material = await prisma.material.findFirst({
+            where: { category: cleanText(m.category, 'category')!, name: cleanText(m.name, 'name')! },
+          });
+          if (!material) { materialsSkipped++; continue; }
+          await prisma.taskMaterial.create({
+            data: {
+              taskId: createdTask.id,
+              materialId: material.id,
+              quantity: parseQuantity(m.quantity),
+              values: parseMaterialValues(m.values, material.metricLabel),
+            },
+          });
+          materials++;
+        } catch {
+          materialsSkipped++;
+        }
+      }
     }
     await recomputeProjectProgress(project.id);
 
@@ -624,7 +647,7 @@ app.post('/projects/import', async (req: Request, res: Response) => {
       action: 'project.create',
       entity: 'expediente',
       target: project.name,
-      summary: `Importó el expediente «${project.name}» (${tasks} tareas, ${members} participantes, ${milestones} hitos)`,
+      summary: `Importó el expediente «${project.name}» (${tasks} tareas, ${materials} materiales${materialsSkipped ? ` (${materialsSkipped} omitidos)` : ''}, ${members} participantes, ${milestones} hitos)`,
       tone: 'positive',
     });
     res.status(201).json(full);

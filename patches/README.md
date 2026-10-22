@@ -139,6 +139,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `034-busqueda-global-y-materiales-en-exportacion.md`: búsqueda global con Ctrl+K (módulos, expedientes y tareas) y los materiales de cada tarea en la exportación a Excel y PDF. Solo frontend.
 
+- `035-importar-materiales-desde-excel.md`: el importador de expedientes lee la hoja «Materiales» y crea los materiales de cada tarea (omite los que no estén en el catálogo). Frontend y backend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

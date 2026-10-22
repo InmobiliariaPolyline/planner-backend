@@ -12,8 +12,7 @@
   el PDF un bloque «Materiales». El importador no cambia (ignora la hoja
   nueva), así que los respaldos siguen siendo compatibles.
 
-Pendiente: importar los materiales desde el Excel (hay que resolverlos contra
-el catálogo por categoría y nombre).
+Resuelto en el parche 035: el importador ya lee los materiales.
 
 ## Validación
 
