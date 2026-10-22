@@ -58,7 +58,7 @@ function UserDashboardModal({ userId, onClose }: { userId: string; onClose: () =
       onClose={onClose}
     >
       {error && <p className="form-error">{error}</p>}
-      {!data && !error && <p className="hero-lead">Cargando panel…</p>}
+      {!data && !error && <div className="skeleton-stack" aria-busy="true" aria-label="Cargando"><span className="skeleton" style={{ height: 48 }} /><span className="skeleton" style={{ height: 48 }} /><span className="skeleton" style={{ height: 48 }} /></div>}
       {data && (
         <div className="form">
           <p className="hero-lead">
@@ -129,7 +129,7 @@ export function UsersView({
 
       {error && <p className="form-error">{error}</p>}
 
-      {users === null && !error && <p className="hero-lead">Cargando usuarios…</p>}
+      {users === null && !error && <div className="skeleton-stack" aria-busy="true" aria-label="Cargando"><span className="skeleton" style={{ height: 48 }} /><span className="skeleton" style={{ height: 48 }} /><span className="skeleton" style={{ height: 48 }} /></div>}
 
       {users && users.length === 0 && (
         <EmptyState icon="users" title="Sin usuarios" description="Todavía no hay cuentas creadas." />

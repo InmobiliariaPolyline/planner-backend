@@ -4576,3 +4576,311 @@ textarea {
 .gantt-bar {
   transition: width var(--dur-slow) var(--ease), background-color var(--dur) var(--ease);
 }
+
+/* 9. REFINAMIENTO GLOBAL ------------------------------------------------------
+   Parche 027. Pasada por todos los módulos con los elementos que ya existen:
+   solo aspecto (color, sombras, movimiento); no cambia estructura ni lógica. */
+
+html {
+  scroll-behavior: smooth;
+}
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+/* Barras de desplazamiento acordes al tema */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--radius-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: content-box;
+}
+/* Foco visible para teclado en todo elemento interactivo */
+:where(a, button, [role="button"], summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Encabezados de vista: el acento de marca en la línea superior */
+.hero .eyebrow,
+.section-heading .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.hero .eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.hero h1 {
+  background: linear-gradient(120deg, var(--text) 55%, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Paneles y tarjetas: borde que se ilumina y cabecera con línea de acento */
+.panel {
+  position: relative;
+}
+.panel:hover {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+.stat-icon {
+  transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.stat-card:hover .stat-icon {
+  transform: scale(1.12) rotate(-6deg);
+}
+.stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Estados vacíos: el icono flota suavemente */
+.empty-icon {
+  animation: float-y 3.6s ease-in-out infinite;
+}
+.empty-state {
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.empty-state:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border-subtle));
+}
+
+/* Listas: filas con realce al pasar el cursor */
+.activity-list button,
+.people-list li,
+.milestone-list li,
+.catalog-list li,
+.share-row,
+.gantt-row {
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.people-list li:hover,
+.milestone-list li:hover,
+.catalog-list li:hover,
+.share-row:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+/* Historial: el punto del evento más reciente late */
+.activity-event:first-child .activity-dot {
+  animation: pulse-dot 2.4s var(--ease) infinite;
+  color: var(--accent);
+}
+
+/* Gantt: línea de "hoy" con pulso y filas con realce */
+.gantt-today {
+  animation: fade var(--dur-slow) var(--ease) both;
+}
+.gantt-row:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+/* Gráfico de cartera (anillo) */
+.ring {
+  animation: orbit-in 900ms var(--ease-out) both;
+}
+@keyframes orbit-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.9);
+  }
+}
+
+/* Usuarios: avatar y estado en línea */
+.avatar {
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.user-chip:hover .avatar,
+.people-list li:hover .avatar {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.user-status {
+  transition: color var(--dur) var(--ease);
+}
+
+/* Menús desplegables y notificaciones: entrada con escala desde su esquina */
+.user-pop,
+.notif-panel {
+  transform-origin: top right;
+  animation: pop-menu var(--dur) var(--ease-out) both;
+  backdrop-filter: blur(12px);
+}
+@keyframes pop-menu {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+.user-pop-item,
+.notif {
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.user-pop-item:hover {
+  transform: translateX(2px);
+}
+.notif-dot {
+  animation: badge-pop 320ms var(--ease-out) both;
+}
+
+/* Modales: cabecera con línea de acento y cierre que gira */
+.modal-head {
+  position: relative;
+}
+.modal-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), transparent);
+}
+.modal-close svg {
+  transition: transform var(--dur) var(--ease);
+}
+.modal-close:hover svg {
+  transform: rotate(90deg);
+}
+
+/* Avisos flotantes: barra de tiempo y salida suave */
+.toast {
+  position: relative;
+  overflow: hidden;
+}
+.toast::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: currentColor;
+  opacity: 0.35;
+  transform-origin: left;
+  animation: toast-timer 5s linear both;
+}
+.toast-success {
+  color: var(--success);
+}
+.toast-error {
+  color: var(--danger);
+}
+.toast-body strong,
+.toast-body span {
+  color: inherit;
+}
+.toast-body strong {
+  color: var(--text);
+}
+.toast-body span {
+  color: var(--text-secondary);
+}
+@keyframes toast-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Pestañas: realce del contador y aparición del subrayado */
+.tab.is-active .count {
+  animation: badge-pop 320ms var(--ease-out) both;
+}
+.tab.is-active::after {
+  animation: tab-line 260ms var(--ease-out) both;
+  transform-origin: center;
+}
+@keyframes tab-line {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Validación en tiempo real: el aviso entra suavemente */
+.vfield-pop,
+.vfield-error {
+  animation: rise 220ms var(--ease-out) both;
+}
+
+/* Guía de uso: secciones y capturas */
+.guide-section,
+.guide-toc-item,
+.guide-shot {
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.guide-toc-item:hover {
+  transform: translateX(3px);
+}
+.guide-shot:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-2);
+}
+.guide-section {
+  animation: stagger-rise 480ms var(--ease-out) both;
+}
+
+/* Configuración: opciones de tema y detalle de tareas */
+.theme-option,
+.task-details-card {
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.theme-option:hover,
+.task-details-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-2);
+}
+.theme-option-check {
+  animation: badge-pop 320ms var(--ease-out) both;
+}
+
+/* Carga de datos: esqueleto con brillo */
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 70%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Expediente público y pantalla "no disponible" */
+.public-bar,
+.unavailable-card {
+  animation: stagger-rise 520ms var(--ease-out) both;
+}
+.unavailable-mark {
+  animation: float-y 3.6s ease-in-out infinite;
+}
+
+/* Botones secundarios y enlaces */
+.btn-secondary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+}
+.link-btn {
+  transition: color var(--dur-fast) var(--ease);
+}
+.banner {
+  animation: rise 260ms var(--ease-out) both;
+}
+.skeleton-stack {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}

@@ -127,6 +127,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - Utilidad `npm run reset:data` (`scripts/reset-data.ts`): borra expedientes y todo su contenido y deja solo el usuario `admin`; sin `--yes` solo simula. Conserva materiales, áreas técnicas y estados de equipo.
 
+- `027-refinamiento-global-de-la-ui.md`: pasada de estilo por todos los módulos (foco, barras de desplazamiento, estados vacíos, esqueletos de carga, menús, modales, avisos, listas, Gantt, Guía). Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

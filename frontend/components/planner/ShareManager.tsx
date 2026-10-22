@@ -182,7 +182,7 @@ export function ShareManager({
         {error && <p className="form-error">{error}</p>}
 
         {links === null ? (
-          <p className="share-empty">Cargando enlaces…</p>
+          <div className="skeleton-stack" aria-busy="true" aria-label="Cargando"><span className="skeleton" style={{ height: 48 }} /><span className="skeleton" style={{ height: 48 }} /><span className="skeleton" style={{ height: 48 }} /></div>
         ) : links.length === 0 ? (
           <p className="share-empty">Este expediente todavía no tiene enlaces de acceso.</p>
         ) : (
