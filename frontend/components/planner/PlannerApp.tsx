@@ -36,6 +36,8 @@ import { ProjectDetailView } from "./ProjectDetailView";
 import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
+import { usePreferences } from "@/lib/preferences";
+import { playChime } from "@/lib/sound";
 import { SearchPalette } from "./SearchPalette";
 import { SystemView } from "./SystemView";
 import { SettingsView } from "./SettingsView";
@@ -209,6 +211,17 @@ export function PlannerApp() {
   const navigate = useCallback((view: ActiveView) => setActiveView(view), []);
   const closeModal = useCallback(() => setModal(null), []);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Tono suave al llegar una notificación nueva. Las guardadas que se cargan al
+  // abrir la app no cuentan: su id (marca de tiempo) es anterior a hace unos segundos.
+  const { notifySound } = usePreferences();
+  const lastChimed = useRef(0);
+  const newestNotification = notifications[0]?.id ?? 0;
+  useEffect(() => {
+    if (!notifySound || newestNotification === 0 || newestNotification === lastChimed.current) return;
+    lastChimed.current = newestNotification;
+    if (Math.floor(newestNotification / 1000) > Date.now() - 4000) playChime();
+  }, [newestNotification, notifySound]);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
   // Ctrl+K / Cmd+K abre la búsqueda global desde cualquier módulo.

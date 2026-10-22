@@ -145,6 +145,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `037-rediseno-del-pdf.md`: PDF rediseñado — portada con logotipo, tarjetas, anillo de estado, ritmo del proyecto, cronograma Gantt dibujado, materiales por categoría, equipo, hitos en línea de tiempo y un historial en línea de tiempo. Solo frontend.
 
+- `038-sonido-suave-de-notificaciones.md`: tono suave (Web Audio, sin archivos) al llegar una notificación nueva, con interruptor y botón «Probar» en Sistema → Accesibilidad. Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

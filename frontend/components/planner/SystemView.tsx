@@ -5,6 +5,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { API_URL, api, type SessionUser } from "@/lib/api";
 import { friendlyError } from "@/lib/errors";
 import type { Theme } from "@/hooks/useTheme";
+import { playChime } from "@/lib/sound";
 import { SYSTEM_PATCH, SYSTEM_RELEASE, SYSTEM_VERSION } from "@/lib/version";
 import {
   ACCENT_PRESETS,
@@ -303,6 +304,27 @@ function AccessibilitySection() {
           checked={prefs.highContrast}
           onChange={(highContrast) => setPreferences({ highContrast })}
         />
+        <div className="pref-row">
+          <span className="pref-row-text">
+            <strong>Sonido de notificaciones</strong>
+            <small>Un tono suave cuando llega un aviso nuevo.</small>
+          </span>
+          <span className="system-status">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={playChime}>
+              Probar
+            </button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={prefs.notifySound}
+              aria-label="Sonido de notificaciones"
+              className={prefs.notifySound ? "switch is-on" : "switch"}
+              onClick={() => setPreferences({ notifySound: !prefs.notifySound })}
+            >
+              <span className="switch-knob" />
+            </button>
+          </span>
+        </div>
       </section>
       <p className="form-hint">
         Si tu sistema operativo ya pide reducir el movimiento, el sistema lo respeta aunque

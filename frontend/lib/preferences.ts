@@ -19,6 +19,8 @@ export type Preferences = {
   depth: Depth;
   reduceMotion: boolean;
   highContrast: boolean;
+  /** Tono suave al llegar una notificación nueva. */
+  notifySound: boolean;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -29,6 +31,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   depth: "3d",
   reduceMotion: false,
   highContrast: false,
+  notifySound: true,
 };
 
 export const ACCENT_PRESETS: { name: string; value: string }[] = [
@@ -58,6 +61,7 @@ function sanitize(raw: unknown): Preferences {
   if (r.depth === "flat") base.depth = "flat";
   base.reduceMotion = r.reduceMotion === true;
   base.highContrast = r.highContrast === true;
+  base.notifySound = r.notifySound !== false;
   return base;
 }
 
