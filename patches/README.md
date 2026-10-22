@@ -129,6 +129,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `027-refinamiento-global-de-la-ui.md`: pasada de estilo por todos los módulos (foco, barras de desplazamiento, estados vacíos, esqueletos de carga, menús, modales, avisos, listas, Gantt, Guía). Solo frontend.
 
+- `028-rediseno-aurora.md`: rediseño visual completo (fondo en malla, vidrio, barras flotantes, píldoras y degradados, bento, dock móvil). Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`
