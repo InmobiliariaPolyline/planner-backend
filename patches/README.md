@@ -125,6 +125,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `026-cors-urls-de-despliegue-vercel.md`: el login desde las URLs de despliegue de Vercel (`plannerbackend-<hash>-polyline.vercel.app`) ya no falla con «No fue posible conectar con la API». Solo backend.
 
+- Utilidad `npm run reset:data` (`scripts/reset-data.ts`): borra expedientes y todo su contenido y deja solo el usuario `admin`; sin `--yes` solo simula. Conserva materiales, áreas técnicas y estados de equipo.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

@@ -13,7 +13,8 @@
     "dev": "tsx src/index.ts",
     "test": "tsx --test test/*.test.ts",
     "seed:users": "tsx scripts/seed-users.ts",
-    "seed:materials": "tsx scripts/seed-materials.ts"
+    "seed:materials": "tsx scripts/seed-materials.ts",
+    "reset:data": "tsx scripts/reset-data.ts"
   },
   "keywords": [],
   "author": "",
