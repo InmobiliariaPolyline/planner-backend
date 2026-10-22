@@ -143,6 +143,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `036-diseno-de-pdf-y-excel.md`: nuevo diseño de las exportaciones — Excel con cabecera de color fija, anchos y filas alternadas; PDF con portada, tarjetas de cifras, tablas con barras de avance y pie con número de página. Solo frontend.
 
+- `037-rediseno-del-pdf.md`: PDF rediseñado — portada con logotipo, tarjetas, anillo de estado, ritmo del proyecto, cronograma Gantt dibujado, materiales por categoría, equipo, hitos en línea de tiempo y un historial en línea de tiempo. Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`
