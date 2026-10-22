@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { friendlyError } from "@/lib/errors";
 import { fieldError, ValidatedField, type Rule } from "@/components/ui/ValidatedField";
 import { formatMoney, parseMoney } from "@/lib/money";
-import type { Project, ProjectFormValues } from "@/lib/types";
+import type { BasicUser, Project, ProjectFormValues } from "@/lib/types";
 
 const EMPTY: ProjectFormValues = {
   name: "",
@@ -47,15 +47,29 @@ function textRules(): Rule[] {
 export function ProjectFormModal({
   mode,
   initialValues,
+  accounts = [],
+  defaultOwner = "",
   onClose,
   onSubmit,
 }: {
   mode: "create" | "edit";
   initialValues?: ProjectFormValues;
+  /** Cuentas existentes del sistema: con ellas el responsable es un desplegable. */
+  accounts?: BasicUser[];
+  /** Responsable por defecto al crear: la cuenta que está creando el expediente. */
+  defaultOwner?: string;
   onClose: () => void;
   onSubmit: (values: ProjectFormValues) => Promise<void>;
 }) {
-  const [values, setValues] = useState<ProjectFormValues>(initialValues ?? EMPTY);
+  const [values, setValues] = useState<ProjectFormValues>(
+    initialValues ?? { ...EMPTY, ownerName: defaultOwner },
+  );
+  // Nombres de las cuentas; si el responsable actual ya no figura (cuenta
+  // eliminada o texto libre antiguo) se conserva como primera opción.
+  const ownerOptions = useMemo(() => {
+    const names = accounts.map((account) => account.name);
+    return values.ownerName && !names.includes(values.ownerName) ? [values.ownerName, ...names] : names;
+  }, [accounts, values.ownerName]);
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -152,14 +166,33 @@ export function ProjectFormModal({
             align="right"
           />
         </div>
-        <ValidatedField
-          label="Responsable"
-          example="María Fernanda Ruiz"
-          rules={rules.ownerName}
-          value={values.ownerName}
-          onChange={set("ownerName")}
-          showErrors={showErrors}
-        />
+        {ownerOptions.length > 0 ? (
+          <label className="form-row">
+            <span>Responsable</span>
+            <select value={values.ownerName} onChange={(event) => set("ownerName")(event.target.value)}>
+              {ownerOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                  {name === defaultOwner ? " (tú)" : ""}
+                </option>
+              ))}
+            </select>
+            <small className="form-hint">
+              {isEdit
+                ? "Elige entre las cuentas existentes del sistema."
+                : "Por defecto es quien crea el expediente; puedes elegir otra cuenta."}
+            </small>
+          </label>
+        ) : (
+          <ValidatedField
+            label="Responsable"
+            example="María Fernanda Ruiz"
+            rules={rules.ownerName}
+            value={values.ownerName}
+            onChange={set("ownerName")}
+            showErrors={showErrors}
+          />
+        )}
         <ValidatedField
           label="Presupuesto oficial"
           money

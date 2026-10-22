@@ -133,6 +133,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `031-profundidad-3d-y-20-efectos.md`: devuelve la profundidad 3D (sombras, elevación, vidrio, brillos) sobre el diseño plano del parche 030 y suma 20 efectos nuevos, entre ellos inclinación 3D y foco de luz que siguen al cursor. Solo frontend.
 
+- `032-responsable-del-expediente-automatico.md`: el responsable del expediente es por defecto quien lo crea y se puede elegir entre las cuentas existentes con un desplegable. Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

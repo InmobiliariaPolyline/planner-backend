@@ -653,12 +653,20 @@ export function PlannerApp() {
       </AppShell>
 
       {modal?.kind === "projectCreate" && (
-        <ProjectFormModal mode="create" onClose={closeModal} onSubmit={createProject} />
+        <ProjectFormModal
+          mode="create"
+          accounts={basicUsers}
+          defaultOwner={user.name}
+          onClose={closeModal}
+          onSubmit={createProject}
+        />
       )}
       {modal?.kind === "projectEdit" && selectedProject && (
         <ProjectFormModal
           mode="edit"
           initialValues={projectToForm(selectedProject)}
+          accounts={basicUsers}
+          defaultOwner={user.name}
           onClose={closeModal}
           onSubmit={updateProject}
         />
