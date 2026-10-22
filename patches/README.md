@@ -123,6 +123,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   10 animaciones y 10 transiciones nuevas, y entrada animada de cada módulo.
   Solo frontend; no requiere migración.
 
+- `026-cors-urls-de-despliegue-vercel.md`: el login desde las URLs de despliegue de Vercel (`plannerbackend-<hash>-polyline.vercel.app`) ya no falla con «No fue posible conectar con la API». Solo backend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

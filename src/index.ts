@@ -34,8 +34,12 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000,https://plannerbackend.vercel.app').split(',').map((origin) => origin.trim());
+// Cada despliegue de Vercel tiene además su propia URL (plannerbackend-<hash>-polyline.vercel.app)
+// y la rama principal otra (plannerbackend-git-main-polyline.vercel.app): sin esto el login
+// desde esas URLs falla con "No fue posible conectar con la API" aunque el backend esté bien.
+const vercelDeployment = /^https:\/\/plannerbackend(-[a-z0-9-]+)?-polyline\.vercel\.app$/;
 app.use(cors({ origin: (origin, callback) => {
-  if (!origin || allowedOrigins.includes(origin)) {
+  if (!origin || allowedOrigins.includes(origin) || vercelDeployment.test(origin)) {
     callback(null, true);
     return;
   }
