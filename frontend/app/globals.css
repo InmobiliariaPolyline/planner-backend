@@ -5297,6 +5297,520 @@ textarea:focus {
   background: var(--surface-2);
 }
 
+/* 11. PROFUNDIDAD 3D + 20 EFECTOS NUEVOS --------------------------------------
+   Parche 031. Devuelve la profundidad al diseño plano del parche 030 (sombras,
+   elevación al pasar el cursor, vidrio, brillos) y suma 20 efectos nuevos
+   (FX1–FX20). Los que siguen al cursor usan variables que fija FxLayer.tsx. */
+
+@property --angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* --- Profundidad: sombras reales ------------------------------------------ */
+:root {
+  --elev-1: 0 1px 2px rgba(20, 18, 60, 0.06), 0 3px 10px rgba(20, 18, 60, 0.06);
+  --elev-2: 0 4px 10px rgba(20, 18, 60, 0.08), 0 12px 28px rgba(20, 18, 60, 0.1);
+  --elev-3: 0 10px 22px rgba(20, 18, 60, 0.14), 0 22px 48px rgba(20, 18, 60, 0.16);
+  --elev-4: 0 18px 38px rgba(20, 18, 60, 0.24), 0 40px 80px rgba(20, 18, 60, 0.26);
+  --shadow-xs: var(--elev-1);
+  --shadow-sm: var(--elev-1);
+  --shadow-md: var(--elev-2);
+  --grad: linear-gradient(135deg, #7357ff 0%, #5b3df5 55%, #3f6bff 100%);
+}
+:root[data-theme="dark"] {
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.55), 0 3px 10px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 6px 16px rgba(0, 0, 0, 0.6), 0 14px 32px rgba(0, 0, 0, 0.45);
+  --elev-3: 0 12px 28px rgba(0, 0, 0, 0.65), 0 26px 56px rgba(0, 0, 0, 0.5);
+  --elev-4: 0 20px 44px rgba(0, 0, 0, 0.7), 0 44px 90px rgba(0, 0, 0, 0.6);
+  --grad: linear-gradient(135deg, #9a7bff 0%, #7a5bff 55%, #5b8cff 100%);
+}
+
+.panel,
+.stat-card,
+.project-card,
+.config-module-card,
+.task-details-card,
+.theme-option {
+  box-shadow: var(--elev-1);
+  transform-style: preserve-3d;
+}
+.modal {
+  box-shadow: var(--elev-4);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+.modal-backdrop {
+  backdrop-filter: blur(6px);
+}
+.user-pop,
+.notif-panel,
+.toast {
+  box-shadow: var(--elev-3);
+}
+.topbar {
+  box-shadow: 0 6px 18px rgba(20, 18, 60, 0.06);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+:root[data-theme="dark"] .topbar {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.sidebar {
+  box-shadow: 6px 0 24px rgba(20, 18, 60, 0.05);
+}
+
+/* Botones con volumen */
+.btn-primary,
+.btn-primary:hover:not(:disabled) {
+  background: var(--grad);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    0 8px 18px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translate(var(--bx, 0), calc(var(--by, 0px) - 2px));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    0 14px 28px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.btn-secondary {
+  box-shadow: var(--elev-1);
+}
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-2);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  opacity: 1;
+}
+.btn::after {
+  display: block;
+}
+.icon-btn {
+  box-shadow: var(--elev-1);
+}
+.icon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-2);
+}
+.icon-btn:hover svg {
+  transform: scale(1.12) rotate(-6deg);
+}
+.brand-mark,
+.boot-logo .brand-mark,
+.login-aside-top .brand-mark {
+  background: var(--grad);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 22px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.boot-logo .brand-mark {
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
+
+/* Elevación e inclinación 3D al pasar el cursor (FX1) */
+.project-card:hover,
+.stat-card:hover,
+.config-module-card:hover,
+.theme-option:hover,
+.task-details-card:hover {
+  transform: perspective(900px) translateY(-4px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  box-shadow: var(--elev-3);
+}
+.panel:hover {
+  box-shadow: var(--elev-2);
+}
+
+/* Fondos animados de carga y login */
+.boot-aurora {
+  display: block;
+}
+.login-blob {
+  display: block;
+}
+.login-grid {
+  display: block;
+}
+.login-aside {
+  background: linear-gradient(155deg, #0e0c33 0%, #26206e 55%, #3a34c7 100%);
+}
+.login-features li {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.boot-progress-fill {
+  background: var(--grad);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.boot-progress-fill::after {
+  display: block;
+}
+.progress-fill {
+  background: var(--grad);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.stat-card::before {
+  display: block;
+  background: var(--stat-glow, rgba(115, 87, 255, 0.35));
+}
+.stat-grid > :nth-child(2) {
+  --stat-glow: rgba(16, 185, 129, 0.35);
+}
+.stat-grid > :nth-child(3) {
+  --stat-glow: rgba(245, 158, 11, 0.35);
+}
+.stat-card:hover .stat-icon {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+/* ===== 20 EFECTOS NUEVOS =================================================== */
+
+/* FX2. Foco de luz que sigue al cursor dentro de las tarjetas */
+.project-card::after,
+.stat-card::after,
+.config-module-card::after,
+.theme-option::after,
+.task-details-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+}
+.project-card:hover::after,
+.stat-card:hover::after,
+.config-module-card:hover::after,
+.theme-option:hover::after,
+.task-details-card:hover::after {
+  opacity: 1;
+}
+
+/* FX3. Botones primarios magnéticos: se acercan al cursor (ver FxLayer) */
+.btn-primary {
+  transition:
+    transform 180ms var(--ease-out),
+    box-shadow var(--dur) var(--ease),
+    filter var(--dur) var(--ease);
+}
+
+/* FX4. Barrido de brillo diagonal al pasar sobre un botón primario */
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.btn-primary:hover:not(:disabled)::before {
+  transform: translateX(120%);
+  transition: transform 700ms var(--ease);
+}
+
+/* FX5. Los modales entran girando en 3D */
+.modal-backdrop {
+  perspective: 1200px;
+}
+.modal {
+  animation: modal-flip 420ms var(--ease-out) both;
+  transform-origin: 50% 100%;
+}
+@keyframes modal-flip {
+  from {
+    opacity: 0;
+    transform: translateY(24px) rotateX(-14deg) scale(0.96);
+  }
+}
+
+/* FX6. Paralaje: las luces del login y la carga se desplazan con el cursor */
+.login-blob-1 {
+  translate: calc(var(--px, 0) * -26px) calc(var(--py, 0) * -20px);
+}
+.login-blob-2 {
+  translate: calc(var(--px, 0) * 32px) calc(var(--py, 0) * 24px);
+}
+.boot-aurora {
+  translate: calc(var(--px, 0) * 40px) calc(var(--py, 0) * 30px);
+}
+.login-grid {
+  translate: calc(var(--px, 0) * -10px) calc(var(--py, 0) * -8px);
+}
+
+/* FX7. Titular del encabezado con degradado que se desplaza */
+.hero h1 {
+  background: linear-gradient(100deg, var(--text) 0%, var(--text) 40%, var(--accent) 55%, var(--text) 70%, var(--text) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-sweep 7s ease-in-out infinite;
+}
+@keyframes text-sweep {
+  0%,
+  35% {
+    background-position: 100% 0;
+  }
+  70%,
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* FX8. Borde de degradado giratorio al pasar sobre una tarjeta */
+.project-card,
+.config-module-card {
+  position: relative;
+}
+.project-card:hover,
+.config-module-card:hover {
+  border-color: transparent;
+}
+.project-card:hover::before,
+.config-module-card:hover::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--angle), var(--accent), #3f9bff, #ff6fb1, var(--accent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin-angle 3s linear infinite;
+  pointer-events: none;
+}
+@keyframes spin-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* FX9. Línea de carga superior cada vez que cambia el módulo */
+.content {
+  position: relative;
+}
+.content::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--grad);
+  transform-origin: left;
+  z-index: 90;
+  pointer-events: none;
+  animation: route-line 700ms var(--ease-out) both;
+}
+@keyframes route-line {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  70% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* FX10. La campana suena cuando hay notificaciones sin leer */
+.icon-btn:has(.notif-dot) svg {
+  transform-origin: 50% 10%;
+  animation: bell-ring 2.6s ease-in-out 1s infinite;
+}
+@keyframes bell-ring {
+  0%,
+  12%,
+  100% {
+    transform: rotate(0);
+  }
+  3%,
+  9% {
+    transform: rotate(14deg);
+  }
+  6% {
+    transform: rotate(-12deg);
+  }
+}
+
+/* FX11. El icono de tema gira al pulsarlo */
+.icon-btn:active svg {
+  transform: rotate(180deg) scale(0.9);
+  transition: transform 260ms var(--ease-out);
+}
+
+/* FX12. Anillo expansivo en el indicador "en línea" */
+.status-dot {
+  position: relative;
+}
+.status-dot::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  animation: ping 2.2s ease-out infinite;
+}
+@keyframes ping {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+/* FX13. Filas de listas y tablas que entran en cascada */
+.activity-list li,
+.people-list li,
+.milestone-list li,
+.catalog-list li,
+.share-row,
+.gantt-row {
+  animation: stagger-rise 420ms var(--ease-out) both;
+}
+:is(.activity-list, .people-list, .milestone-list, .catalog-list) > li:nth-child(2) {
+  animation-delay: 50ms;
+}
+:is(.activity-list, .people-list, .milestone-list, .catalog-list) > li:nth-child(3) {
+  animation-delay: 100ms;
+}
+:is(.activity-list, .people-list, .milestone-list, .catalog-list) > li:nth-child(4) {
+  animation-delay: 150ms;
+}
+:is(.activity-list, .people-list, .milestone-list, .catalog-list) > li:nth-child(n + 5) {
+  animation-delay: 200ms;
+}
+
+/* FX14. Revelado al hacer scroll (navegadores con animation-timeline) */
+@supports (animation-timeline: view()) {
+  .panel,
+  .guide-section {
+    animation: scroll-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+  }
+}
+@keyframes scroll-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+  }
+}
+
+/* FX15. Avisos con rebote elástico */
+.toast {
+  animation: toast-spring 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes toast-spring {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.9);
+  }
+}
+
+/* FX16. Casillas con pop al marcarse */
+input[type="checkbox"]:checked {
+  animation: check-pop 320ms var(--ease-out);
+}
+@keyframes check-pop {
+  40% {
+    transform: scale(1.35);
+  }
+}
+
+/* FX17. Enlaces con subrayado que crece desde la izquierda */
+.link-btn,
+.hero-lead a,
+.guide a {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0 1.5px;
+  transition: background-size var(--dur) var(--ease);
+}
+.link-btn:hover,
+.hero-lead a:hover,
+.guide a:hover {
+  background-size: 100% 1.5px;
+}
+
+/* FX18. Barras del Gantt con brillo y sombra al pasar el cursor */
+.gantt-bar {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.gantt-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.4) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+.gantt-bar:hover {
+  transform: translateY(-1px) scaleY(1.12);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.gantt-bar:hover::after {
+  transform: translateX(120%);
+  transition: transform 700ms var(--ease);
+}
+
+/* FX19. Módulo activo de la barra lateral con resplandor que respira */
+.nav-item.is-active {
+  background: var(--text);
+  animation: nav-glow 3s ease-in-out infinite;
+}
+@keyframes nav-glow {
+  0%,
+  100% {
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  50% {
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 48%, transparent);
+  }
+}
+
+/* FX20. Cifras con flotación suave y resplandor al pasar sobre la tarjeta */
+.stat-value {
+  display: inline-block;
+  transition: transform var(--dur) var(--ease), text-shadow var(--dur) var(--ease);
+}
+.stat-card:hover .stat-value {
+  transform: translateY(-2px) scale(1.04);
+  text-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* FX21 (extra). Foco de luz sutil en el fondo que sigue al cursor */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(520px circle at calc(50% + var(--px, 0) * 50%) calc(50% + var(--py, 0) * 50%), color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
 /* Móvil: la navegación pasa a un dock flotante inferior (antes no había
    ningún menú por debajo de 720 px). */
 @media (max-width: 720px) {
