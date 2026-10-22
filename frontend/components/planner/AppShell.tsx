@@ -111,6 +111,8 @@ export function AppShell({
   onClearNotifications,
   userName,
   userRole,
+  userAvatarUrl,
+  userAvatarColor,
   isAdmin,
   onSignOut,
   children,
@@ -126,6 +128,8 @@ export function AppShell({
   onClearNotifications: () => void;
   userName: string;
   userRole: string;
+  userAvatarUrl?: string | null;
+  userAvatarColor?: string | null;
   isAdmin: boolean;
   onSignOut: () => void;
   children: ReactNode;
@@ -227,7 +231,7 @@ export function AppShell({
             >
               <Icon name={theme === "light" ? "moon" : "sun"} size={18} />
             </button>
-            <UserMenu name={userName} role={userRole} onSignOut={onSignOut} />
+            <UserMenu name={userName} role={userRole} avatarUrl={userAvatarUrl} avatarColor={userAvatarColor} onSignOut={onSignOut} />
           </div>
         </header>
 

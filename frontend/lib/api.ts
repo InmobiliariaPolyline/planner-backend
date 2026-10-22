@@ -110,7 +110,17 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
 
 const json = (data: unknown) => JSON.stringify(data);
 
-export type SessionUser = { id: string; username: string; name: string; role: string; roleLabel: string };
+/** Datos personalizables del perfil (GET /auth/me, PATCH /auth/profile). */
+export type ProfileFields = {
+  avatarUrl?: string | null;
+  avatarColor?: string | null;
+  jobTitle?: string | null;
+  phone?: string | null;
+};
+
+export type SessionUser = { id: string; username: string; name: string; role: string; roleLabel: string } & ProfileFields;
+
+export type ProfilePatch = { name?: string; jobTitle?: string | null; phone?: string | null; avatarColor?: string | null; avatarUrl?: string | null };
 
 /** Resultado de POST /auth/login: sesión directa, o un desafío de verificación en dos pasos. */
 export type LoginResult =
@@ -129,6 +139,12 @@ export const api = {
       failMessage: "No fue posible iniciar sesión",
     }),
   me: () => request<{ user: SessionUser }>("/auth/me", { failMessage: "No fue posible validar la sesión" }),
+  updateProfile: (patch: ProfilePatch) =>
+    request<{ token: string; user: SessionUser }>("/auth/profile", {
+      method: "PATCH",
+      body: json(patch),
+      failMessage: "No fue posible guardar el perfil",
+    }),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: true }>("/auth/password", {
       method: "PATCH",

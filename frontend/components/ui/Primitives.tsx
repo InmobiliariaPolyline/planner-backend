@@ -17,9 +17,30 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   return <span className={`badge tone-${tone}`}>{children}</span>;
 }
 
-export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+/** Avatar con la foto de la persona (si la subió), o su inicial sobre el color que eligió. */
+export function Avatar({
+  name,
+  size = "md",
+  src,
+  color,
+}: {
+  name: string;
+  size?: "sm" | "md" | "lg" | "xl";
+  src?: string | null;
+  color?: string | null;
+}) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img className={`avatar avatar-${size} avatar-photo`} src={src} alt="" aria-hidden="true" />
+    );
+  }
   return (
-    <span className={`avatar avatar-${size}`} aria-hidden="true">
+    <span
+      className={`avatar avatar-${size}`}
+      style={color ? { background: color, color: "#fff" } : undefined}
+      aria-hidden="true"
+    >
       {initials(name)}
     </span>
   );

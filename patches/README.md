@@ -147,6 +147,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `038-sonido-suave-de-notificaciones.md`: tono suave (Web Audio, sin archivos) al llegar una notificación nueva, con interruptor y botón «Probar» en Sistema → Accesibilidad. Solo frontend.
 
+- `039-personalizacion-del-perfil.md`: cada usuario puede personalizar nombre para mostrar, foto, color de avatar, cargo y teléfono (Sistema → Perfil). **Requiere aplicar la migración `20261022000000_add_user_profile` ANTES de desplegar el backend.**
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`

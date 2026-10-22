@@ -28,6 +28,13 @@ model User {
   twoFactorEmail   String?
   twoFactorEnabled Boolean @default(false)
 
+  /// Personalización del perfil (todo opcional): foto en miniatura como data URL
+  /// (la reduce el navegador a ~128 px), color del avatar, cargo y teléfono.
+  avatarUrl   String?
+  avatarColor String?
+  jobTitle    String?
+  phone       String?
+
   createdProjects Project[]       @relation("ProjectCreator")
   teamMemberships TeamMember[]
   twoFactorCodes  TwoFactorCode[]

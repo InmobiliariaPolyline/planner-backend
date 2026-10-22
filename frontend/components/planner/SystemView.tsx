@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Avatar } from "@/components/ui/Primitives";
 import { API_URL, api, type SessionUser } from "@/lib/api";
 import { friendlyError } from "@/lib/errors";
 import type { Theme } from "@/hooks/useTheme";
@@ -109,39 +110,225 @@ function PrefRow({ label, hint, children }: { label: string; hint: string; child
 
 /* --- Perfil ---------------------------------------------------------------- */
 
-function ProfileSection({ user }: { user: SessionUser }) {
-  const initial = user.name.trim().charAt(0).toUpperCase() || "?";
+/** Reduce la imagen elegida a un cuadrado de 128 px (recorte centrado) y la
+ * devuelve como data URL JPEG: pesa pocos KB y cabe en el perfil. */
+async function resizeAvatar(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Elige un archivo de imagen (PNG, JPG o WebP).");
+  if (file.size > 8 * 1024 * 1024) throw new Error("La imagen pesa demasiado (máximo 8 MB).");
+  const bitmap = await createImageBitmap(file);
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Tu navegador no pudo procesar la imagen.");
+  const side = Math.min(bitmap.width, bitmap.height);
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
+function ProfileSection({
+  user,
+  onSessionUpdated,
+}: {
+  user: SessionUser;
+  onSessionUpdated: (token: string, user: SessionUser) => void;
+}) {
+  const [name, setName] = useState(user.name);
+  const [jobTitle, setJobTitle] = useState(user.jobTitle ?? "");
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [avatarColor, setAvatarColor] = useState<string | null>(user.avatarColor ?? null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatarUrl ?? null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const dirty =
+    name.trim() !== user.name ||
+    jobTitle.trim() !== (user.jobTitle ?? "") ||
+    phone.trim() !== (user.phone ?? "") ||
+    avatarColor !== (user.avatarColor ?? null) ||
+    avatarUrl !== (user.avatarUrl ?? null);
+
+  async function pickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setError(null);
+    setSaved(false);
+    try {
+      setAvatarUrl(await resizeAvatar(file));
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : "No fue posible leer la imagen.");
+    }
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setSaved(false);
+    if (name.trim().length < 2) {
+      setError("Escribe tu nombre (al menos 2 caracteres).");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await api.updateProfile({
+        name: name.trim(),
+        jobTitle: jobTitle.trim() || null,
+        phone: phone.trim() || null,
+        avatarColor,
+        avatarUrl,
+      });
+      onSessionUpdated(result.token, result.user);
+      setSaved(true);
+    } catch (saveError) {
+      setError(friendlyError(saveError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Cualquier cambio en el formulario oculta el aviso de «Perfil actualizado».
+  const changed = () => setSaved(false);
+
   return (
     <>
-      <SectionHead title="Perfil" lead="Los datos de la cuenta con la que iniciaste sesión." />
-      <section className="panel profile-card">
-        <span className="profile-avatar" aria-hidden="true">
-          {initial}
-        </span>
-        <div>
-          <h3>{user.name}</h3>
-          <span className="badge tone-accent">{user.roleLabel}</span>
+      <SectionHead title="Perfil" lead="Personaliza cómo apareces en el sistema: nombre, foto, color, cargo y teléfono." />
+      <form className="panel profile-editor" onSubmit={submit}>
+        <div className="profile-photo">
+          <Avatar name={name || user.name} size="xl" src={avatarUrl} color={avatarColor} />
+          <div className="profile-photo-actions">
+            <div>
+              <strong>Foto de perfil</strong>
+              <p className="form-hint">Se recorta en cuadrado y se reduce sola. PNG, JPG o WebP.</p>
+            </div>
+            <div className="profile-photo-buttons">
+              <label className="btn btn-secondary btn-sm">
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="visually-hidden-input" onChange={pickPhoto} />
+                <Icon name="plus" size={14} />
+                {avatarUrl ? "Cambiar foto" : "Subir foto"}
+              </label>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  className="btn btn-ghost-danger btn-sm"
+                  onClick={() => {
+                    setAvatarUrl(null);
+                    changed();
+                  }}
+                >
+                  <Icon name="trash" size={14} />
+                  Quitar
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </section>
-      <section className="panel">
-        <dl className="kv">
-          <div>
-            <dt>Nombre</dt>
-            <dd>{user.name}</dd>
+
+        <div className="form-row">
+          <span>Color del avatar</span>
+          <div className="swatches" role="radiogroup" aria-label="Color del avatar">
+            {ACCENT_PRESETS.map((preset) => {
+              const active = avatarColor === preset.value;
+              return (
+                <button
+                  key={preset.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={preset.name}
+                  title={preset.name}
+                  className={active ? "swatch is-active" : "swatch"}
+                  style={{ background: preset.value }}
+                  onClick={() => {
+                    setAvatarColor(preset.value);
+                    changed();
+                  }}
+                >
+                  {active && <Icon name="check" size={14} />}
+                </button>
+              );
+            })}
+            {avatarColor && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  setAvatarColor(null);
+                  changed();
+                }}
+              >
+                Predeterminado
+              </button>
+            )}
           </div>
-          <div>
-            <dt>Usuario</dt>
-            <dd>{user.username}</dd>
+          <small className="form-hint">Se usa cuando no tienes foto.</small>
+        </div>
+
+        <div className="form-grid">
+          <div className="form-row">
+            <span>Nombre para mostrar</span>
+            <input
+              value={name}
+              maxLength={80}
+              onChange={(e) => {
+                setName(e.target.value);
+                changed();
+              }}
+              disabled={busy}
+            />
           </div>
-          <div>
-            <dt>Rol</dt>
-            <dd>{user.roleLabel}</dd>
+          <div className="form-row">
+            <span>Cargo</span>
+            <input
+              value={jobTitle}
+              maxLength={80}
+              placeholder="Ej. Arquitecta residente"
+              onChange={(e) => {
+                setJobTitle(e.target.value);
+                changed();
+              }}
+              disabled={busy}
+            />
           </div>
-        </dl>
-        <p className="form-hint">
-          El nombre y el rol los gestiona el Administrador desde el módulo Usuarios.
-        </p>
-      </section>
+        </div>
+        <div className="form-grid">
+          <div className="form-row">
+            <span>Teléfono</span>
+            <input
+              value={phone}
+              maxLength={30}
+              inputMode="tel"
+              placeholder="Ej. +51 987 654 321"
+              onChange={(e) => {
+                setPhone(e.target.value);
+                changed();
+              }}
+              disabled={busy}
+            />
+          </div>
+          <div className="form-row">
+            <span>Usuario de acceso</span>
+            <input value={user.username} disabled readOnly />
+            <small className="form-hint">No se puede cambiar. Rol: {user.roleLabel}.</small>
+          </div>
+        </div>
+
+        {error && <p className="form-error">{error}</p>}
+        {saved && !error && (
+          <p className="form-success">
+            <Icon name="check-circle" size={15} />
+            Perfil actualizado.
+          </p>
+        )}
+        <div>
+          <button type="submit" className="btn btn-primary" disabled={busy || !dirty}>
+            {busy ? "Guardando…" : "Guardar perfil"}
+          </button>
+        </div>
+      </form>
     </>
   );
 }
@@ -525,11 +712,13 @@ export function SystemView({
   onSetTheme,
   user,
   onSignOut,
+  onSessionUpdated,
 }: {
   theme: Theme;
   onSetTheme: (theme: Theme) => void;
   user: SessionUser;
   onSignOut: () => void;
+  onSessionUpdated: (token: string, user: SessionUser) => void;
 }) {
   const [active, setActive] = useState<SectionId>("perfil");
 
@@ -563,7 +752,7 @@ export function SystemView({
         </nav>
 
         <div className="system-body" key={active}>
-          {active === "perfil" && <ProfileSection user={user} />}
+          {active === "perfil" && <ProfileSection user={user} onSessionUpdated={onSessionUpdated} />}
           {active === "apariencia" && <AppearanceSection theme={theme} onSetTheme={onSetTheme} />}
           {active === "accesibilidad" && <AccessibilitySection />}
           {active === "seguridad" && <SecuritySection onSignOut={onSignOut} />}

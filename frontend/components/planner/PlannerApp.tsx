@@ -92,6 +92,7 @@ export function PlannerApp() {
     verifyTwoFactor,
     resendTwoFactor,
     cancelTwoFactor,
+    updateSession,
   } = useAuth();
   const authenticated = authStatus === "in";
   const { onlineIds, ready: presenceReady } = usePresence(token);
@@ -585,6 +586,8 @@ export function PlannerApp() {
         onClearNotifications={clearNotifications}
         userName={user.name}
         userRole={user.roleLabel}
+        userAvatarUrl={user.avatarUrl}
+        userAvatarColor={user.avatarColor}
         isAdmin={user.role === "admin"}
         onSignOut={logout}
       >
@@ -631,7 +634,7 @@ export function PlannerApp() {
         {activeView === "guide" && <GuideView onNavigate={navigate} />}
 
         {activeView === "system" && (
-          <SystemView theme={theme} onSetTheme={setTheme} user={user} onSignOut={logout} />
+          <SystemView theme={theme} onSetTheme={setTheme} user={user} onSignOut={logout} onSessionUpdated={updateSession} />
         )}
 
         {activeView === "users" && user.role === "admin" && (

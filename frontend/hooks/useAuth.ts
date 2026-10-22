@@ -126,6 +126,14 @@ export function useAuth() {
     }
   }, [twoFactor]);
 
+  /** Reemplaza la sesión en curso (p. ej. tras editar el perfil, que emite un token nuevo). */
+  const updateSession = useCallback((newToken: string, sessionUser: SessionUser) => {
+    setAuthToken(newToken);
+    persistToken(newToken);
+    setUser(sessionUser);
+    setToken(newToken);
+  }, []);
+
   const cancelTwoFactor = useCallback(() => {
     setTwoFactor(null);
     setLoginError(null);
@@ -143,5 +151,6 @@ export function useAuth() {
     verifyTwoFactor,
     resendTwoFactor,
     cancelTwoFactor,
+    updateSession,
   };
 }

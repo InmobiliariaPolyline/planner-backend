@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { EmptyState } from "@/components/ui/Primitives";
+import { EmptyState, Avatar } from "@/components/ui/Primitives";
 import { Modal } from "@/components/ui/Modal";
 import { friendlyError } from "@/lib/errors";
 import { api } from "@/lib/api";
@@ -156,8 +156,14 @@ export function UsersView({
                 />
               );
               const label = (
-                <span>
-                  <strong>{user.name}</strong> · {user.roleLabel}
+                <span style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", minWidth: 0 }}>
+                  <Avatar name={user.name} size="sm" src={user.avatarUrl} color={user.avatarColor} />
+                  <span style={{ minWidth: 0 }}>
+                    <strong>{user.name}</strong> · {user.roleLabel}
+                    {(user.jobTitle || user.phone) && (
+                      <small className="user-contact">{[user.jobTitle, user.phone].filter(Boolean).join(" · ")}</small>
+                    )}
+                  </span>
                 </span>
               );
               return (

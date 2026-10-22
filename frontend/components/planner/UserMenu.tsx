@@ -7,10 +7,14 @@ import { Avatar } from "@/components/ui/Primitives";
 export function UserMenu({
   name,
   role,
+  avatarUrl,
+  avatarColor,
   onSignOut,
 }: {
   name: string;
   role: string;
+  avatarUrl?: string | null;
+  avatarColor?: string | null;
   onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +46,7 @@ export function UserMenu({
         onClick={() => setOpen((value) => !value)}
       >
         <span className="user-avatar-wrap">
-          <Avatar name={name} size="sm" />
+          <Avatar name={name} size="sm" src={avatarUrl} color={avatarColor} />
           <span className="user-status" aria-hidden="true" />
         </span>
         <span className="user-chip-text">
@@ -55,7 +59,7 @@ export function UserMenu({
       {open && (
         <div className="user-pop" role="menu">
           <div className="user-pop-head">
-            <Avatar name={name} size="md" />
+            <Avatar name={name} size="md" src={avatarUrl} color={avatarColor} />
             <div>
               <strong>{name}</strong>
               <span>{role}</span>

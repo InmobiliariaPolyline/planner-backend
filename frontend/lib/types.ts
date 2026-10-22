@@ -188,6 +188,10 @@ export type ManagedUser = {
   roleLabel: string;
   online: boolean;
   createdAt: string;
+  avatarUrl?: string | null;
+  avatarColor?: string | null;
+  jobTitle?: string | null;
+  phone?: string | null;
 };
 
 export type UserProjectSummary = {

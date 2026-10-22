@@ -14,6 +14,7 @@ import { attachPresence, isOnline } from './lib/presence';
 import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
 import { maskEmail } from './lib/email';
 import { formatMaterialValues, parseMaterialValues, parseQuantity } from './lib/materials';
+import { parseProfile } from './lib/profile';
 import { CooldownError, COOLDOWN_SECONDS, issueTwoFactorCode, verifyTwoFactorCode } from './lib/twoFactor';
 
 const taskInclude = {
@@ -60,6 +61,8 @@ app.use(rateLimit({
 // El logo del expediente viaja como imagen en base64 dentro del JSON: necesita
 // un cupo más generoso que el resto de la API, que solo maneja texto corto.
 app.use('/projects/:id/logo', express.json({ limit: '2mb' }));
+// La foto de perfil (miniatura de ~128 px) viaja como data URL dentro del JSON.
+app.use('/auth/profile', express.json({ limit: '100kb' }));
 app.use(express.json({ limit: '10kb' }));
 
 // Ruta de prueba inicial
@@ -84,6 +87,30 @@ app.use('/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standard
 // dificultar que alguien pruebe códigos a fuerza bruta.
 app.use('/auth/2fa', rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false }));
 
+type UserRecord = { id: string; username: string; name: string; role: string; avatarUrl: string | null; avatarColor: string | null; jobTitle: string | null; phone: string | null };
+
+/** Datos de sesión que ve el frontend: identidad + perfil personalizable. El
+ * token solo lleva la identidad (id, usuario, nombre y rol), nunca la foto. */
+function sessionUser(record: UserRecord) {
+  const role = record.role as Role;
+  return {
+    id: record.id,
+    username: record.username,
+    name: record.name,
+    role,
+    roleLabel: ROLE_LABEL[role] ?? record.role,
+    avatarUrl: record.avatarUrl,
+    avatarColor: record.avatarColor,
+    jobTitle: record.jobTitle,
+    phone: record.phone,
+  };
+}
+
+function sessionResponse(record: UserRecord) {
+  const role = record.role as Role;
+  return { token: signToken({ id: record.id, username: record.username, name: record.name, role }), user: sessionUser(record) };
+}
+
 app.post('/auth/login', async (req: Request, res: Response) => {
   try {
     const username = cleanText(req.body?.username, 'username', false)?.toLowerCase();
@@ -104,8 +131,7 @@ app.post('/auth/login', async (req: Request, res: Response) => {
       res.json({ twoFactorRequired: true, challengeId, cooldownSeconds, emailHint: maskEmail(record.twoFactorEmail) });
       return;
     }
-    const user = { id: record.id, username: record.username, name: record.name, role: record.role as Role };
-    res.json({ token: signToken(user), user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
+    res.json(sessionResponse(record));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'No fue posible iniciar sesión. Inténtalo de nuevo en un momento.' });
@@ -116,8 +142,7 @@ app.post('/auth/login', async (req: Request, res: Response) => {
 async function completeLogin(userId: string, res: Response): Promise<void> {
   const record = await prisma.user.findUnique({ where: { id: userId } });
   if (!record) { res.status(404).json({ error: 'Usuario no encontrado' }); return; }
-  const user = { id: record.id, username: record.username, name: record.name, role: record.role as Role };
-  res.json({ token: signToken(user), user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
+  res.json(sessionResponse(record));
 }
 
 // Segundo paso del login (verificación en dos pasos). Sin sesión todavía:
@@ -157,9 +182,29 @@ app.post('/auth/2fa/login-resend', async (req: Request, res: Response) => {
 app.use(requireAuth);
 
 // Datos del usuario ya autenticado (para restaurar la sesión al recargar).
-app.get('/auth/me', (req: Request, res: Response) => {
-  const user = req.user!;
-  res.json({ user: { ...user, roleLabel: ROLE_LABEL[user.role] ?? user.role } });
+app.get('/auth/me', async (req: Request, res: Response) => {
+  try {
+    const record = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!record) { res.status(401).json({ error: 'Tu sesión no es válida o caducó. Vuelve a iniciar sesión.' }); return; }
+    res.json({ user: sessionUser(record) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'No fue posible validar la sesión' });
+  }
+});
+
+// Personalizar el propio perfil: nombre para mostrar, foto, color del avatar,
+// cargo y teléfono. El usuario de acceso y el rol no se tocan aquí. Devuelve
+// además un token nuevo porque el nombre viaja dentro del token.
+app.patch('/auth/profile', async (req: Request, res: Response) => {
+  try {
+    const data = parseProfile(req.body);
+    const updated = await prisma.user.update({ where: { id: req.user!.id }, data });
+    res.json(sessionResponse(updated));
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: error instanceof Error ? error.message : 'No fue posible guardar el perfil' });
+  }
 });
 
 // Cambiar la propia contraseña desde Configuración > Perfil. No pide
@@ -300,6 +345,10 @@ app.get('/users', async (req: Request, res: Response) => {
       roleLabel: ROLE_LABEL[u.role as Role] ?? u.role,
       online: isOnline(u.id),
       createdAt: u.createdAt,
+      avatarUrl: u.avatarUrl,
+      avatarColor: u.avatarColor,
+      jobTitle: u.jobTitle,
+      phone: u.phone,
     })));
   } catch (error) {
     console.error(error);
