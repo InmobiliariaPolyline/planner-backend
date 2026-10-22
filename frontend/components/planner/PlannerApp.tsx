@@ -36,7 +36,7 @@ import { ProjectDetailView } from "./ProjectDetailView";
 import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
-import { ConfigView } from "./ConfigView";
+import { SystemView } from "./SystemView";
 import { SettingsView } from "./SettingsView";
 import { ShareManager } from "./ShareManager";
 import { TaskFormModal, type PendingMaterial } from "./TaskFormModal";
@@ -601,7 +601,9 @@ export function PlannerApp() {
 
         {activeView === "guide" && <GuideView onNavigate={navigate} />}
 
-        {activeView === "config" && <ConfigView theme={theme} onSetTheme={setTheme} />}
+        {activeView === "system" && (
+          <SystemView theme={theme} onSetTheme={setTheme} user={user} onSignOut={logout} />
+        )}
 
         {activeView === "users" && user.role === "admin" && (
           <UsersView onlineIds={onlineIds} presenceReady={presenceReady} currentUserId={user.id} />

@@ -5777,6 +5777,442 @@ input[type="checkbox"]:checked {
   text-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
+/* 12. MÓDULO «SISTEMA» Y PREFERENCIAS ----------------------------------------
+   Parche 033. Sub-barra lateral con cinco submódulos y los atributos data-* que
+   escribe lib/preferences.ts (acento, esquinas, densidad, texto, efectos,
+   movimiento y contraste). Va después de las secciones 10 y 11 para poder
+   sobrescribirlas. */
+
+/* --- Maquetación del módulo ----------------------------------------------- */
+.system-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.system-nav {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--space-6));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.system-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.system-nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.system-nav-item.is-active {
+  background: var(--accent-subtle);
+  color: var(--accent-on-subtle);
+}
+.system-nav-text strong,
+.system-nav-text small {
+  display: block;
+}
+.system-nav-text strong {
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.system-nav-text small {
+  font-size: var(--text-xs);
+  opacity: 0.75;
+  line-height: 1.35;
+}
+.system-body {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  animation: rise var(--dur-slow) var(--ease-out) both;
+}
+.system-head h2 {
+  font-size: var(--text-2xl);
+}
+.system-head p {
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.system-subtitle {
+  margin-bottom: var(--space-4);
+  font-size: var(--text-md);
+}
+
+/* --- Filas de preferencia -------------------------------------------------- */
+.pref-group {
+  display: grid;
+  gap: 0;
+  padding: 0;
+}
+.pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.pref-group > .pref-row {
+  padding: var(--space-5) var(--space-6);
+}
+.pref-group > .pref-row + .pref-row {
+  border-top: 1px solid var(--border);
+}
+.pref-row-stack {
+  flex-wrap: wrap;
+}
+.pref-row-text strong,
+.pref-row-text small {
+  display: block;
+}
+.pref-row-text strong {
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+.pref-row-text small {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Control segmentado */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.segmented-item {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 3px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.segmented-item:hover:not(.is-active) {
+  color: var(--text);
+}
+.segmented-item.is-active {
+  background: var(--surface);
+  color: var(--accent-on-subtle);
+  box-shadow: 0 0 0 1px var(--border), var(--elev-1);
+}
+
+/* Interruptor */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: background-color var(--dur) var(--ease);
+}
+.switch.is-on {
+  background: var(--accent);
+}
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform var(--dur) var(--ease-out);
+}
+.switch.is-on .switch-knob {
+  transform: translateX(18px);
+}
+
+/* Muestras de color */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 0 0 1px var(--border-strong);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.swatch:hover {
+  transform: scale(1.12);
+}
+.swatch.is-active {
+  box-shadow: 0 0 0 2px var(--text);
+}
+.swatch-custom {
+  background: conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #6366f1, #ec4899, #ef4444);
+  cursor: pointer;
+}
+.swatch-custom input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Vista previa */
+.preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.preview-progress {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Perfil */
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+.profile-card h3 {
+  margin-bottom: var(--space-1);
+}
+.kv {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+.kv > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+}
+.kv > div + div {
+  border-top: 1px solid var(--border);
+}
+.kv dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.kv dd {
+  margin: 0;
+  font-weight: 600;
+}
+.system-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.form-success {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--success-subtle);
+  color: var(--success-on-subtle);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 900px) {
+  .system-layout {
+    grid-template-columns: 1fr;
+  }
+  .system-nav {
+    position: static;
+    display: flex;
+    overflow-x: auto;
+  }
+  .system-nav-item {
+    flex-shrink: 0;
+  }
+  .system-nav-text small {
+    display: none;
+  }
+}
+
+/* --- Preferencias: atributos que escribe lib/preferences.ts ---------------- */
+
+/* Esquinas */
+:root[data-radius="sharp"] {
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
+}
+:root[data-radius="round"] {
+  --radius-xs: 10px;
+  --radius-sm: 16px;
+  --radius: 24px;
+  --radius-lg: 32px;
+}
+
+/* Densidad */
+:root[data-density="compact"] {
+  --space-3: 0.625rem;
+  --space-4: 0.8rem;
+  --space-5: 1rem;
+  --space-6: 1.2rem;
+  --space-8: 1.6rem;
+  --space-10: 2rem;
+}
+:root[data-density="compact"] .btn,
+:root[data-density="compact"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+:root[data-density="compact"] select {
+  height: 36px;
+}
+:root[data-density="compact"] .btn-sm {
+  height: 30px;
+}
+
+/* Tamaño del texto */
+:root[data-fontscale="sm"] {
+  font-size: 14px;
+}
+:root[data-fontscale="lg"] {
+  font-size: 18px;
+}
+:root[data-fontscale="xl"] {
+  font-size: 20px;
+}
+
+/* Alto contraste */
+:root[data-contrast="high"] {
+  --border: #8a8a96;
+  --border-subtle: #b4b4be;
+  --border-strong: #5a5a66;
+  --text-secondary: #26262e;
+  --text-muted: #44444e;
+}
+:root[data-contrast="high"][data-theme="dark"] {
+  --border: #8a8aa0;
+  --border-subtle: #6a6a80;
+  --border-strong: #b0b0c8;
+  --text-secondary: #e6e6f2;
+  --text-muted: #c4c4d6;
+}
+
+/* Reducir movimiento (equivale a la preferencia del sistema operativo) */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Efectos planos: sin sombras, inclinación 3D, brillos ni vidrio */
+:root[data-depth="flat"] {
+  --elev-1: none;
+  --elev-2: none;
+  --elev-3: 0 0 0 1px var(--border-strong);
+  --elev-4: 0 0 0 1px var(--border-strong);
+}
+:root[data-depth="flat"] .panel,
+:root[data-depth="flat"] .stat-card,
+:root[data-depth="flat"] .project-card,
+:root[data-depth="flat"] .config-module-card,
+:root[data-depth="flat"] .task-details-card,
+:root[data-depth="flat"] .theme-option,
+:root[data-depth="flat"] .topbar,
+:root[data-depth="flat"] .sidebar,
+:root[data-depth="flat"] .modal,
+:root[data-depth="flat"] .icon-btn,
+:root[data-depth="flat"] .btn-secondary {
+  box-shadow: none;
+  backdrop-filter: none;
+}
+:root[data-depth="flat"] .project-card:hover,
+:root[data-depth="flat"] .stat-card:hover,
+:root[data-depth="flat"] .config-module-card:hover,
+:root[data-depth="flat"] .task-details-card:hover,
+:root[data-depth="flat"] .theme-option:hover,
+:root[data-depth="flat"] .btn-secondary:hover,
+:root[data-depth="flat"] .icon-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+:root[data-depth="flat"] .btn-primary,
+:root[data-depth="flat"] .btn-primary:hover:not(:disabled) {
+  background: var(--accent);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+:root[data-depth="flat"] .btn-primary::before,
+:root[data-depth="flat"] .btn::after,
+:root[data-depth="flat"] .stat-card::before,
+:root[data-depth="flat"] .project-card:hover::before,
+:root[data-depth="flat"] .config-module-card:hover::before {
+  display: none;
+}
+:root[data-depth="flat"] .nav-item.is-active {
+  animation: none;
+  box-shadow: none;
+}
+:root[data-depth="flat"] .brand-mark,
+:root[data-depth="flat"] .boot-logo .brand-mark {
+  background: var(--accent);
+  box-shadow: none;
+  animation: none;
+}
+:root[data-depth="flat"] .progress-fill {
+  background: var(--accent);
+  box-shadow: none;
+}
+:root[data-depth="flat"] .stat-card:hover .stat-value {
+  transform: none;
+  text-shadow: none;
+}
+:root[data-depth="flat"] .modal {
+  animation: none;
+}
+
 /* Móvil: la navegación pasa a un dock flotante inferior (antes no había
    ningún menú por debajo de 720 px). */
 @media (max-width: 720px) {

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { FxLayer } from "@/components/ui/FxLayer";
+import { PrefsApplier } from "@/components/ui/PrefsApplier";
+import { PREFS_BOOT_SCRIPT } from "@/lib/preferences";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,9 +34,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript + PREFS_BOOT_SCRIPT }} />
       </head>
       <body>
+        <PrefsApplier />
         <FxLayer />
         {children}
       </body>

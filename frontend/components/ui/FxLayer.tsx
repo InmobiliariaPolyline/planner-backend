@@ -62,6 +62,7 @@ export function FxLayer() {
     };
 
     const onMove = (e: PointerEvent) => {
+      if (root.dataset.motion === "reduced" || root.dataset.depth === "flat") return;
       last = e;
       if (!raf) raf = requestAnimationFrame(frame);
     };

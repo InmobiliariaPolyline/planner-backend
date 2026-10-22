@@ -133,7 +133,7 @@ export type ActiveView =
   | "settings"
   | "guide"
   | "users"
-  | "config";
+  | "system";
 
 export type Notification = {
   id: number;

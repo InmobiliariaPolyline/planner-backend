@@ -135,6 +135,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `032-responsable-del-expediente-automatico.md`: el responsable del expediente es por defecto quien lo crea y se puede elegir entre las cuentas existentes con un desplegable. Solo frontend.
 
+- `033-modulo-sistema.md`: «Configuración» pasa a llamarse «Sistema», con sub-barra lateral y cinco submódulos (Perfil, Apariencia con acento y esquinas personalizables, Accesibilidad, Seguridad y Estado del sistema). Preferencias guardadas en el navegador. Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`
