@@ -129,7 +129,7 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `027-refinamiento-global-de-la-ui.md`: pasada de estilo por todos los módulos (foco, barras de desplazamiento, estados vacíos, esqueletos de carga, menús, modales, avisos, listas, Gantt, Guía). Solo frontend.
 
-- `029-pulido-del-estilo-original.md`: se retira el rediseño «Aurora» y se vuelve al estilo sobrio de siempre, con mejor jerarquía, tarjetas de cifras con iconos de color y un dock de navegación en móvil. Solo frontend.
+- `030-diseno-plano-moderno.md`: diseño plano y moderno sin efectos 3D (sin sombras, vidrio ni degradados), con titulares grandes, tarjetas solo con borde y dock de navegación en móvil. Solo frontend.
 
 ## Cambios mayores (no son parches)
 
