@@ -34,3 +34,7 @@ con «reducir movimiento» y en pantallas táctiles.
 `npx tsc --noEmit`, `npx eslint . --quiet` y `npx next build` sin errores.
 Verificado en el navegador: la tarjeta se inclina (matrix3d), proyecta sombra
 y recibe el foco de luz. No requiere migración.
+
+## Ajuste
+
+Se retiró el foco de luz que sigue al cursor (en tarjetas y en el fondo): se pintaba encima del texto y lo desenfocaba.

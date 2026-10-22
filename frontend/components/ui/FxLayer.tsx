@@ -6,9 +6,8 @@ const TILT = ".project-card, .stat-card, .config-module-card, .theme-option, .ta
 const MAGNET = ".btn-primary";
 
 // Efectos que siguen al cursor, resueltos con delegación de eventos y variables
-// CSS para no tocar los componentes: inclinación 3D y foco de luz en tarjetas
-// (--rx, --ry, --mx, --my), botones magnéticos (--bx, --by) y paralaje del fondo
-// (--px, --py). Se desactivan con "reducir movimiento" y en pantallas táctiles.
+// CSS para no tocar los componentes: inclinación 3D de tarjetas (--rx, --ry),
+// botones magnéticos (--bx, --by) y paralaje del fondo (--px, --py). Se desactivan con "reducir movimiento" y en pantallas táctiles.
 export function FxLayer() {
   useEffect(() => {
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -46,8 +45,6 @@ export function FxLayer() {
         const r = card.getBoundingClientRect();
         const x = (e.clientX - r.left) / r.width;
         const y = (e.clientY - r.top) / r.height;
-        card.style.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
-        card.style.setProperty("--my", `${(y * 100).toFixed(1)}%`);
         card.style.setProperty("--ry", `${((x - 0.5) * 7).toFixed(2)}deg`);
         card.style.setProperty("--rx", `${((0.5 - y) * 7).toFixed(2)}deg`);
       }

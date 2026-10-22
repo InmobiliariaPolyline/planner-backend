@@ -5334,7 +5334,6 @@ textarea:focus {
 .task-details-card,
 .theme-option {
   box-shadow: var(--elev-1);
-  transform-style: preserve-3d;
 }
 .modal {
   box-shadow: var(--elev-4);
@@ -5470,29 +5469,6 @@ textarea:focus {
 }
 
 /* ===== 20 EFECTOS NUEVOS =================================================== */
-
-/* FX2. Foco de luz que sigue al cursor dentro de las tarjetas */
-.project-card::after,
-.stat-card::after,
-.config-module-card::after,
-.theme-option::after,
-.task-details-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--dur) var(--ease);
-}
-.project-card:hover::after,
-.stat-card:hover::after,
-.config-module-card:hover::after,
-.theme-option:hover::after,
-.task-details-card:hover::after {
-  opacity: 1;
-}
 
 /* FX3. Botones primarios magnéticos: se acercan al cursor (ver FxLayer) */
 .btn-primary {
@@ -5799,16 +5775,6 @@ input[type="checkbox"]:checked {
 .stat-card:hover .stat-value {
   transform: translateY(-2px) scale(1.04);
   text-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 40%, transparent);
-}
-
-/* FX21 (extra). Foco de luz sutil en el fondo que sigue al cursor */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(520px circle at calc(50% + var(--px, 0) * 50%) calc(50% + var(--py, 0) * 50%), color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
-  pointer-events: none;
 }
 
 /* Móvil: la navegación pasa a un dock flotante inferior (antes no había
