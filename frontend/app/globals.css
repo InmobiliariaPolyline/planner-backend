@@ -4039,3 +4039,540 @@ input[type="checkbox"]:active {
     scroll-behavior: auto !important;
   }
 }
+
+/* 8. NEXT GEN UI --------------------------------------------------------------
+   Parche 025. 10 animaciones (@keyframes) y 10 transiciones (propiedades con
+   transition) nuevas, más pantalla de carga y login remasterizados. */
+
+/* --- 10 ANIMACIONES ------------------------------------------------------- */
+
+/* A1. Anillos orbitales de la pantalla de carga */
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* A2. Flotación suave del logotipo */
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+/* A3. Deriva de las manchas de luz del login y la carga */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(8%, -6%, 0) scale(1.15);
+  }
+}
+/* A4. Sacudida del mensaje de error */
+@keyframes shake-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+/* A5. Brillo que recorre la barra de progreso */
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+/* A6. Entrada escalonada de tarjetas y paneles */
+@keyframes stagger-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+/* A7. Resplandor pulsante del logotipo */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 8px 28px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 8px 44px color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+}
+/* A8. Crecimiento de barras (progreso y Gantt) */
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+/* A9. Onda al pulsar botones */
+@keyframes ripple {
+  from {
+    opacity: 0.35;
+    transform: scale(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+/* A10. Rebote de insignias y del texto de estado de carga */
+@keyframes badge-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- Pantalla de carga ---------------------------------------------------- */
+.boot {
+  position: relative;
+  overflow: hidden;
+}
+.boot-aurora {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  top: 50%;
+  left: 50%;
+  margin: -30vmax 0 0 -30vmax;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 20%, transparent), transparent 62%);
+  animation: aurora-drift 9s ease-in-out infinite;
+  pointer-events: none;
+}
+.boot > *:not(.boot-aurora) {
+  position: relative;
+}
+.boot-stage {
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 150px;
+}
+.boot-stage > * {
+  grid-area: 1 / 1;
+}
+.boot-ring {
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  animation: orbit 1.8s linear infinite;
+}
+.boot-ring-1 {
+  width: 150px;
+  height: 150px;
+  opacity: 0.85;
+}
+.boot-ring-2 {
+  width: 118px;
+  height: 118px;
+  border-top-color: var(--accent-2);
+  animation-duration: 2.6s;
+  animation-direction: reverse;
+  opacity: 0.6;
+}
+.boot-ring-3 {
+  width: 88px;
+  height: 88px;
+  border-top-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  animation-duration: 3.4s;
+  opacity: 0.45;
+}
+.boot-logo {
+  animation:
+    boot-logo 560ms var(--ease) both,
+    float-y 3.2s ease-in-out 600ms infinite;
+}
+.boot-logo .brand-mark {
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
+.boot-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  animation: badge-pop 360ms var(--ease-out) both;
+}
+.boot-progress {
+  position: relative;
+}
+.boot-progress-fill {
+  position: relative;
+  overflow: hidden;
+  transition: width 120ms linear;
+}
+.boot-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: sheen 1.4s ease-in-out infinite;
+}
+
+/* --- Login ---------------------------------------------------------------- */
+.login-aside {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.login-aside > *:not(.login-blob):not(.login-grid) {
+  position: relative;
+  z-index: 1;
+}
+.login-blob {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  animation: aurora-drift 12s ease-in-out infinite;
+}
+.login-blob-1 {
+  width: 380px;
+  height: 380px;
+  top: -120px;
+  right: -100px;
+  background: rgba(139, 92, 246, 0.55);
+}
+.login-blob-2 {
+  width: 320px;
+  height: 320px;
+  bottom: -100px;
+  left: -80px;
+  background: rgba(56, 189, 248, 0.35);
+  animation-delay: -5s;
+  animation-direction: reverse;
+}
+.login-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(70% 70% at 40% 40%, #000, transparent);
+  pointer-events: none;
+}
+.login-aside-top .brand-mark {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+.login-aside-body > * {
+  animation: stagger-rise 600ms var(--ease-out) both;
+}
+.login-aside-body > :nth-child(2) {
+  animation-delay: 80ms;
+}
+.login-aside-body > :nth-child(3) {
+  animation-delay: 160ms;
+}
+.login-aside-body > :nth-child(4) {
+  animation-delay: 240ms;
+}
+.login-features {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.login-features li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  transition:
+    transform var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.login-features li:hover {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+.login-features strong,
+.login-features small {
+  display: block;
+}
+.login-features strong {
+  font-size: var(--text-sm);
+  color: #fff;
+}
+.login-features small {
+  font-size: var(--text-xs);
+  color: #c7cbf2;
+}
+.login-feature-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.login-form {
+  animation: stagger-rise 560ms var(--ease-out) 120ms both;
+}
+
+/* --- Formularios: campo con icono ----------------------------------------- */
+.input-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-icon input {
+  padding-left: 38px;
+  padding-right: 38px;
+}
+.input-icon-lead {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color var(--dur-fast) var(--ease), transform var(--dur) var(--ease);
+}
+.input-icon:focus-within .input-icon-lead {
+  color: var(--accent);
+  transform: scale(1.1);
+}
+.input-icon-action {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.input-icon-action:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+}
+.form-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.form-error-shake {
+  animation: shake-x 420ms var(--ease) both;
+}
+.form-row > span {
+  transition: color var(--dur-fast) var(--ease);
+}
+.form-row:focus-within > span {
+  color: var(--accent);
+}
+
+/* --- Módulos: entrada escalonada (A6) ------------------------------------ */
+.stat-card,
+.project-card,
+.panel,
+.config-module-card {
+  animation: stagger-rise 480ms var(--ease-out) both;
+}
+.stat-grid > :nth-child(2),
+.dashboard-grid > :nth-child(2),
+.config-modules > :nth-child(2) {
+  animation-delay: 60ms;
+}
+.stat-grid > :nth-child(3),
+.config-modules > :nth-child(3) {
+  animation-delay: 120ms;
+}
+.stat-grid > :nth-child(4) {
+  animation-delay: 180ms;
+}
+.project-card:nth-child(2) {
+  animation-delay: 60ms;
+}
+.project-card:nth-child(3) {
+  animation-delay: 120ms;
+}
+.project-card:nth-child(n + 4) {
+  animation-delay: 180ms;
+}
+
+/* --- Barras (A8), insignias (A10), ripple (A9) --------------------------- */
+.progress-fill,
+.gantt-bar {
+  transform-origin: left center;
+  animation: bar-grow 700ms var(--ease-out) both;
+}
+.badge {
+  animation: badge-pop 320ms var(--ease-out) both;
+}
+.btn {
+  position: relative;
+  overflow: hidden;
+}
+.btn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+.btn:active:not(:disabled)::after {
+  animation: ripple 520ms var(--ease-out);
+}
+
+/* --- 10 TRANSICIONES ------------------------------------------------------ */
+/* T1. Cambio de tema: fondos, bordes y texto se mezclan en vez de saltar */
+body,
+.sidebar,
+.topbar,
+.panel,
+.stat-card,
+.project-card,
+.modal,
+.login-panel {
+  transition:
+    background-color var(--dur-slow) var(--ease),
+    border-color var(--dur-slow) var(--ease),
+    color var(--dur-slow) var(--ease),
+    box-shadow var(--dur-slow) var(--ease);
+}
+/* T2. Botones: elevación al pasar el cursor y hundimiento al pulsar */
+.btn {
+  transition:
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+/* T3. Tarjetas: levitan al pasar el cursor */
+.project-card,
+.stat-card,
+.config-module-card {
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.project-card:hover,
+.stat-card:hover,
+.config-module-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--elev-3);
+}
+/* T4. Campos: el anillo de foco entra y sale con suavidad */
+input,
+select,
+textarea {
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+/* T5. Navegación lateral: el icono se desliza al activarse */
+.nav-item {
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    padding var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.nav-item:hover:not(.is-active) {
+  transform: translateX(3px);
+}
+.nav-item svg {
+  transition: transform var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.nav-item:hover svg {
+  transform: scale(1.12);
+}
+/* T6. Pestañas: el subrayado y el color se mezclan al cambiar */
+.tab::after {
+  transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.tab {
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+/* T7. Modales: el fondo se desenfoca al aparecer */
+.modal-backdrop {
+  backdrop-filter: blur(5px);
+  animation: fade var(--dur) var(--ease) both;
+}
+/* T8. Vista nueva: cada módulo entra deslizándose */
+.content {
+  animation: view-enter var(--dur-slow) var(--ease-out) both;
+}
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+.view {
+  animation: none;
+}
+/* T9. Iconos de acción: se escalan y giran al interactuar */
+.icon-btn {
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.icon-btn svg {
+  transition: transform var(--dur) var(--ease);
+}
+.icon-btn:hover svg {
+  transform: scale(1.12) rotate(-6deg);
+}
+/* T10. Barras: el ancho se anima cuando cambia el progreso */
+.progress-fill,
+.gantt-bar {
+  transition: width var(--dur-slow) var(--ease), background-color var(--dur) var(--ease);
+}

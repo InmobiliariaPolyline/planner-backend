@@ -226,7 +226,12 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="content">{children}</main>
+        <main
+          className="content"
+          key={["overview", "gantt", "tasks", "activity"].includes(activeView) ? "project" : activeView}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -32,7 +32,17 @@ export type IconName =
   | "tags"
   | "book"
   | "shield"
-  | "mail";
+  | "mail"
+  | "eye"
+  | "eye-off"
+  | "lock"
+  | "user"
+  | "sparkles"
+  | "layers"
+  | "activity"
+  | "alert"
+  | "info"
+  | "check-circle";
 
 const PATHS: Record<IconName, ReactNode> = {
   dashboard: (
@@ -158,6 +168,65 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m3.5 6 8.5 6.5L20.5 6" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  "eye-off": (
+    <>
+      <path d="M9.9 5.2A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.9" />
+      <path d="M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.8 9.8 0 0 0 4.4-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m3 3 18 18" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
+  sparkles: (
+    <>
+      <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z" />
+      <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+    </>
+  ),
+  layers: (
+    <>
+      <path d="m12 3 9 5-9 5-9-5z" />
+      <path d="m3 13 9 5 9-5" />
+    </>
+  ),
+  activity: <path d="M3 12h4l3-8 4 16 3-8h4" />,
+  alert: (
+    <>
+      <path d="M12 3 2 20h20z" />
+      <path d="M12 10v4" />
+      <path d="M12 17.5v.01" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 7.5v.01" />
+    </>
+  ),
+  "check-circle": (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
     </>
   ),
 };

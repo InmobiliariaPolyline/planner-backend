@@ -118,6 +118,10 @@ carpeta no es leida automaticamente por Render ni por Vercel.
   una se abre sola al hacer clic, en vez de ver todo apilado en una sola
   página; solo se muestran las áreas realmente disponibles. No requiere
   migración.
+- `025-remasterizacion-next-gen-ui.md`: nueva pantalla de carga y de login,
+  formularios con iconos y mostrar/ocultar contraseña, 10 iconos SVG nuevos,
+  10 animaciones y 10 transiciones nuevas, y entrada animada de cada módulo.
+  Solo frontend; no requiere migración.
 
 ## Cambios mayores (no son parches)
 
