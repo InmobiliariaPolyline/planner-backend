@@ -105,6 +105,7 @@ export function AppShell({
   theme,
   notifications,
   onNavigate,
+  onSearch,
   onToggleTheme,
   onDismissNotification,
   onClearNotifications,
@@ -119,6 +120,7 @@ export function AppShell({
   theme: Theme;
   notifications: Notification[];
   onNavigate: (view: ActiveView) => void;
+  onSearch: () => void;
   onToggleTheme: () => void;
   onDismissNotification: (id: number) => void;
   onClearNotifications: () => void;
@@ -206,8 +208,9 @@ export function AppShell({
             <button
               type="button"
               className="icon-btn"
-              aria-label="Buscar proyectos"
-              onClick={() => onNavigate("projects")}
+              aria-label="Buscar (Ctrl+K)"
+              title="Buscar (Ctrl+K)"
+              onClick={onSearch}
             >
               <Icon name="search" size={18} />
             </button>

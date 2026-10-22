@@ -36,6 +36,7 @@ import { ProjectDetailView } from "./ProjectDetailView";
 import { budgetToNumber, ProjectFormModal, projectToForm } from "./ProjectFormModal";
 import { ProjectsView } from "./ProjectsView";
 import { LoadingScreen, LoginScreen } from "./Screens";
+import { SearchPalette } from "./SearchPalette";
 import { SystemView } from "./SystemView";
 import { SettingsView } from "./SettingsView";
 import { ShareManager } from "./ShareManager";
@@ -207,6 +208,20 @@ export function PlannerApp() {
 
   const navigate = useCallback((view: ActiveView) => setActiveView(view), []);
   const closeModal = useCallback(() => setModal(null), []);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+
+  // Ctrl+K / Cmd+K abre la búsqueda global desde cualquier módulo.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   // ── Catálogos ────────────────────────────────────────────────────────────
   // Cuántas tareas / participantes usan cada elemento del catálogo. Sirve para
@@ -551,6 +566,7 @@ export function PlannerApp() {
         theme={theme}
         notifications={notifications}
         onNavigate={navigate}
+        onSearch={() => setSearchOpen(true)}
         onToggleTheme={toggleTheme}
         onDismissNotification={dismissNotification}
         onClearNotifications={clearNotifications}
@@ -654,6 +670,15 @@ export function PlannerApp() {
         )}
       </AppShell>
 
+      {searchOpen && (
+        <SearchPalette
+          projects={projects}
+          isAdmin={user.role === "admin"}
+          onNavigate={navigate}
+          onSelectProject={selectProject}
+          onClose={closeSearch}
+        />
+      )}
       {modal?.kind === "projectCreate" && (
         <ProjectFormModal
           mode="create"

@@ -7,7 +7,8 @@ import readXlsxFile from "read-excel-file/browser";
 import { jsPDF } from "jspdf";
 import { isoDay } from "./format";
 import { formatMoney, parseMoney } from "./money";
-import type { ActivityEvent, Project, RawTask } from "./types";
+import { formatMaterialValues } from "./materials";
+import type { ActivityEvent, Project, RawTask, TaskMaterial } from "./types";
 
 const DIACRITICS = /[̀-ͯ]/g;
 const S = String;
@@ -24,6 +25,19 @@ function slug(text: string): string {
 
 function norm(text: unknown): string {
   return S(text ?? "").normalize("NFD").replace(DIACRITICS, "").toLowerCase().trim();
+}
+
+/** Una fila por material de cada tarea: [tarea, categoría, material, cantidad, valores]. */
+function materialRows(project: Project): (string | number)[][] {
+  return taskRows(project).flatMap((t) =>
+    ((t.taskMaterials ?? []) as TaskMaterial[]).map((tm) => [
+      S(t.name ?? ""),
+      tm.material.category,
+      tm.material.name,
+      tm.quantity,
+      formatMaterialValues(tm.values ?? {}),
+    ]),
+  );
 }
 
 function taskRows(project: Project): RawTask[] {
@@ -83,6 +97,7 @@ export async function exportProjectExcel(project: Project) {
       S(t.dependency ?? ""),
     ]),
   );
+  const materiales = grid(["Tarea", "Categoría", "Material", "Cantidad", "Valores de la métrica"], materialRows(project));
   const hitos = grid(
     ["Descripción", "Fecha"],
     (project.milestones ?? []).map((m) => [m.description, isoDay(m.date)]),
@@ -96,6 +111,7 @@ export async function exportProjectExcel(project: Project) {
     [
       { sheet: "Expediente", data: expediente },
       { sheet: "Tareas", data: tareas },
+      { sheet: "Materiales", data: materiales },
       { sheet: "Hitos", data: hitos },
       { sheet: "Equipo", data: equipo },
     ],
@@ -185,6 +201,13 @@ export function exportProjectPdf(project: Project) {
       (t) =>
         `• ${S(t.name)} - ${S((t.technicalArea as { name?: string } | undefined)?.name ?? "")} · ${isoDay(S(t.startDate ?? ""))} -> ${isoDay(S(t.endDate ?? ""))} · ${Number(t.progress ?? 0)}%`,
     ),
+  );
+  block(
+    `Materiales (${materialRows(project).length})`,
+    materialRows(project).map((m) => {
+      const values = S(m[4]);
+      return `• ${S(m[0])} - ${S(m[2])} (${S(m[1])}) · cantidad ${S(m[3])}${values ? ` · ${values}` : ""}`;
+    }),
   );
   block(
     `Equipo (${(project.teamMembers ?? []).length})`,
