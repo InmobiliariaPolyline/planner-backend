@@ -141,6 +141,8 @@ carpeta no es leida automaticamente por Render ni por Vercel.
 
 - `035-importar-materiales-desde-excel.md`: el importador de expedientes lee la hoja «Materiales» y crea los materiales de cada tarea (omite los que no estén en el catálogo). Frontend y backend.
 
+- `036-diseno-de-pdf-y-excel.md`: nuevo diseño de las exportaciones — Excel con cabecera de color fija, anchos y filas alternadas; PDF con portada, tarjetas de cifras, tablas con barras de avance y pie con número de página. Solo frontend.
+
 ## Cambios mayores (no son parches)
 
 - Rediseño completo de la interfaz del frontend + reorganización de `app/page.tsx`
