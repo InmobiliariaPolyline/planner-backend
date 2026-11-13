@@ -334,6 +334,7 @@ a paso están en [`GUIA_APIS_RENDER_NEON_VERCEL.txt`](GUIA_APIS_RENDER_NEON_VERC
 | Variable | Servicio | Valor | Notas |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Render | cadena *pooled* de Neon con `sslmode=require` | **Solo aquí y en el `.env` local.** Nunca en Git, Vercel ni el navegador |
+| `CENTRAL_DATABASE_URL` | Render (opcional) | cadena de Neon del rol `writer_planner` de la base central | Vista central para el agente de Coze: tras cada escritura (y al arrancar) copia un resumen de los expedientes. Sin ella no se sincroniza nada. Nunca en Git ni en Vercel |
 | `FRONTEND_ORIGIN` | Render | p. ej. `https://tu-app.vercel.app,http://localhost:3000` | orígenes que CORS acepta, separados por comas |
 | `PORT` | Render | lo inyecta Render | el backend usa `process.env.PORT`; en local cae a 3001 |
 | `NEXT_PUBLIC_API_URL` | Vercel | la URL pública del backend en Render, **sin barra final** | si falta, el frontend intenta `localhost` y las llamadas fallan en producción |
