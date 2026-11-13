@@ -15,6 +15,7 @@ import { computeAutoProgress, syncAutoProgress } from './lib/taskProgress';
 import { maskEmail } from './lib/email';
 import { formatMaterialValues, parseMaterialValues, parseQuantity } from './lib/materials';
 import { parseProfile } from './lib/profile';
+import { programarSincronizacion, vistaCentralMiddleware } from './lib/vistaCentral';
 import { CooldownError, COOLDOWN_SECONDS, issueTwoFactorCode, verifyTwoFactorCode } from './lib/twoFactor';
 
 const taskInclude = {
@@ -34,6 +35,8 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
+// Vista central para el agente de Coze (opcional: solo actúa si existe CENTRAL_DATABASE_URL).
+app.use(vistaCentralMiddleware);
 const allowedOrigins = (process.env.FRONTEND_ORIGIN ?? 'http://localhost:3000,https://plannerbackend.vercel.app').split(',').map((origin) => origin.trim());
 // Cada despliegue de Vercel tiene además su propia URL (plannerbackend-<hash>-polyline.vercel.app)
 // y la rama principal otra (plannerbackend-git-main-polyline.vercel.app): sin esto el login
@@ -1517,6 +1520,8 @@ const PORT = process.env.PORT || 3001;
 
 const server = app.listen(PORT, () => {
   console.log(`Servidor ejecutándose en el puerto ${PORT}`);
+  // Al despertar (Render free se duerme) deja la vista central al día aunque nadie haya editado.
+  programarSincronizacion();
 });
 attachPresence(server);
 
